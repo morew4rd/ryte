@@ -6,4 +6,4 @@ build:
 	zig build
 
 run:
-	./zig-out/bin/ryte
+	./zig-out/bin/ryte_example
