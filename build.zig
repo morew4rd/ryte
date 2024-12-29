@@ -448,6 +448,7 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     raudio.linkLibC();
 
     raudio.root_module.addCMacro("RAUDIO_STANDALONE", "1");
+    raudio.root_module.addCMacro("SUPPORT_MODULE_RAUDIO", "1");
 
     // const src_dir = glfw_path ++ "/src/";
 
@@ -503,6 +504,8 @@ fn buildExample(
     exe.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     exe.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
     // exe.root_module.addImport("freetype", mods.freetype_mod);
+
+    exe.linkLibC(); // Add this line
 
     if (!opt.is_wasm) {
         exe.linkLibrary(deps.glfw.?);

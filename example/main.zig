@@ -3,6 +3,7 @@ const std = @import("std");
 // native dependencies
 const glfw = @import("glfw");
 const physfs = @import("physfs");
+const raudio = @import("raudio");
 const sg = @import("sokol_gfx");
 const sgp = @import("sokol_gp");
 
@@ -23,6 +24,12 @@ pub fn main() !void {
 
     _ = physfs.PHYSFS_init("");
     defer _ = physfs.PHYSFS_deinit();
+
+    raudio.InitAudioDevice();
+    if (!raudio.IsAudioDeviceReady()) {
+        return error.RaudioInitFailed;
+    }
+    defer raudio.CloseAudioDevice();
 
     const win = glfw.glfwCreateWindow(W, H, initial_title, null, null);
     if (win == null) {
