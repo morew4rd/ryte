@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // native dependencies
 const glfw = @import("glfw");
@@ -16,9 +17,6 @@ pub fn main() !void {
     std.debug.print("ryte example.\n", .{});
 
     if (glfw.glfwInit() == 0) {
-        var err: [*c]const u8 = undefined;
-        _ = glfw.glfwGetError(&err);
-        std.debug.print("glfw init failed: {s}\n", .{err});
         return error.GlfwInitFailed;
     }
     defer glfw.glfwTerminate();
@@ -44,9 +42,7 @@ pub fn main() !void {
     }
     glfw.glfwMakeContextCurrent(win);
 
-    var sgdesc: sg.sg_desc = .{
-        // .logger = .{ .func = slog }
-    };
+    var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
     defer sg.sg_shutdown();
     if (!sg.sg_isvalid()) {
@@ -59,27 +55,41 @@ pub fn main() !void {
         return error.SGP_IsInvalid;
     }
 
-    while (glfw.glfwWindowShouldClose(win) == 0) {
-        var pass: sg.sg_pass = .{};
-        sgp.sgp_begin(W, H);
-        // sgp.sgp_viewport(0, 0, W, H);
-        // sgp.sgp_project(0, 0, W, H);
-        sgp.sgp_reset_transform();
-
-        sgp.sgp_set_color(1, 1, 0, 1);
-        sgp.sgp_draw_filled_rect(20, 20, 300, 300);
-
-        pass.swapchain.width = W;
-        pass.swapchain.height = H;
-
-        sg.sg_begin_pass(&pass);
-        sgp.sgp_flush();
-        sgp.sgp_end();
-        sg.sg_end_pass();
-        sg.sg_commit();
-
-        glfw.glfwSwapBuffers(win);
-
-        glfw.glfwPollEvents();
+    // Conditional compilation for different platforms
+    if (builtin.target.os.tag == .emscripten) {
+        // Emscripten-specific loop
+        const emscripten = @import("emscripten");
+        emscripten.emscripten_set_main_loop(emscriptenMainLoop, 0, true);
+    } else {
+        // Desktop-specific loop
+        while (glfw.glfwWindowShouldClose(win) == 0) {
+            mainLoop(win);
+            glfw.glfwPollEvents();
+        }
     }
+}
+
+fn mainLoop(win: ?*glfw.GLFWwindow) void {
+    var pass: sg.sg_pass = .{};
+    sgp.sgp_begin(W, H);
+    sgp.sgp_reset_transform();
+
+    sgp.sgp_set_color(1, 1, 0, 1);
+    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+
+    pass.swapchain.width = W;
+    pass.swapchain.height = H;
+
+    sg.sg_begin_pass(&pass);
+    sgp.sgp_flush();
+    sgp.sgp_end();
+    sg.sg_end_pass();
+    sg.sg_commit();
+
+    glfw.glfwSwapBuffers(win);
+}
+
+fn emscriptenMainLoop() callconv(.c) void {
+    const win = glfw.glfwGetCurrentContext();
+    mainLoop(win);
 }

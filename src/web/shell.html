@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"/>
+    <title> app </title>
+    <style>
+        body { margin: 0; background-color: black }
+        .cvs {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            margin: 0px;
+            border: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: block;
+            image-rendering: optimizeSpeed;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+            -ms-interpolation-mode: nearest-neighbor;
+        }
+    </style>
+  </head>
+  <body onpaste="pasteHandler(event);">
+    <canvas class="cvs" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <script type='text/javascript'>
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function() {
+            return function(text) {
+                text = Array.prototype.slice.call(arguments).join(' ');
+                console.log(text);
+            };
+        })(),
+        printErr: function(text) {
+            text = Array.prototype.slice.call(arguments).join(' ');
+            console.error(text);
+        },
+        canvas: (function() {
+            var canvas = document.getElementById('canvas');
+            //canvas.addEventListener("webglcontextlost", function(e) { alert('FIXME: WebGL context lost, please reload the page'); e.preventDefault(); }, false);
+            return canvas;
+        })(),
+        setStatus: function(text) {
+            // console.log("status: " + text);
+        },
+        monitorRunDependencies: function(left) {
+            // console.log("monitor run dependencies: " + left);
+        }
+      };
+      window.onerror = function() {
+        console.log("onerror: " + event.message);
+      };
+    </script>
+    {{{ SCRIPT }}}
+    <script type='text/javascript'>
+      // MG: itch.io doesn't work well without these
+      // TODO: test
+      window.onload = function () { window.focus(); }
+      window.onclick = function () { window.focus(); }
+
+      function pasteHandler(event) {
+        console.log("File(s) pasted");
+        console.log(JSON.stringify(event), event); // might give you mime types
+
+        // Prevent default behavior (Prevent file from being opened)
+        // event.preventDefault();
+        let items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        if (items) {
+          console.log(JSON.stringify(items), items); // might give you mime types
+            // Use DataTransferItemList interface to access the file(s)
+            // [...items].forEach((item, i) => {
+            for (index in items) {
+                var item = items[index];
+                // If dropped items aren't files, reject them
+                if (item.kind === "file") {
+                    const file = item.getAsFile();
+                    file.arrayBuffer().then((ab) => {
+                        const buf = new Uint8Array(ab);
+                        // console.log(`… file[${i}].name = ${file.name}. sz: ${file.size}.. buf lenth: ${buf.length}`);
+                        // console.log("---------------",buf.length, "-----------------------");
+                        // let win = window.frames['zingapp-iframe'].contentWindow;
+                        let win = window;
+                        win.ccall("k_fs_add_droppedfile", "number", ["string", "array", "number"],[
+                            file.name, buf, file.size,
+                        ]);
+                    })
+                } else {
+                  // console.log("not file. what is it? " + item)
+                }
+              };
+            } else {
+                // console.log("no items...  what is it? " + event)
+            // Use DataTransfer interface to access the file(s)
+            // [...event.dataTransfer.files].forEach((file, i) => {
+            // console.log(`… file[${i}].name = ${file.name}`);
+            // });
+        }
+    }
+    </script>
+  </body>
+</html>

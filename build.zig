@@ -28,6 +28,7 @@ const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
 const raudio_bindings = bindings_prefix ++ "raudio_bindings.zig";
 const sokol_gfx_bindings = bindings_prefix ++ "sokol_gfx_bindings.zig";
 const sokol_gp_bindings = bindings_prefix ++ "sokol_gp_bindings.zig";
+const emscripten_bindings = bindings_prefix ++ "emscripten_bindings.zig";
 // const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
 
 const example_root_source = "./example/main.zig";
@@ -58,8 +59,39 @@ const RyteModules = struct {
     raudio_mod: *Module,
     sokol_gfx_mod: *Module,
     sokol_gp_mod: *Module,
+    emscripten_mod: *Module,
     // freetype_mod: *Module,
 };
+
+// emscripten
+fn emSdkLazyPath(b: *Build, emsdk: *Build.Dependency, subPaths: []const []const u8) Build.LazyPath {
+    return emsdk.path(b.pathJoin(subPaths));
+}
+
+fn createEmsdkStep(b: *Build, emsdk: *Build.Dependency) *Build.Step.Run {
+    if (builtin.os.tag == .windows) {
+        return b.addSystemCommand(&.{emSdkLazyPath(b, emsdk, &.{"emsdk.bat"}).getPath(b)});
+    } else {
+        const step = b.addSystemCommand(&.{"bash"});
+        step.addArg(emSdkLazyPath(b, emsdk, &.{"emsdk"}).getPath(b));
+        return step;
+    }
+}
+
+fn emSdkSetupStep(b: *Build, emsdk: *Build.Dependency) !?*Build.Step.Run {
+    const dot_emsc_path = emSdkLazyPath(b, emsdk, &.{".emscripten"}).getPath(b);
+    const dot_emsc_exists = !std.meta.isError(std.fs.accessAbsolute(dot_emsc_path, .{}));
+    if (!dot_emsc_exists) {
+        const emsdk_install = createEmsdkStep(b, emsdk);
+        emsdk_install.addArgs(&.{ "install", "latest" });
+        const emsdk_activate = createEmsdkStep(b, emsdk);
+        emsdk_activate.addArgs(&.{ "activate", "latest" });
+        emsdk_activate.step.dependOn(&emsdk_install.step);
+        return emsdk_activate;
+    } else {
+        return null;
+    }
+}
 
 // bindings
 fn getModules(b: *std.Build) RyteModules {
@@ -69,6 +101,7 @@ fn getModules(b: *std.Build) RyteModules {
         .raudio_mod = b.addModule("raudio", .{ .root_source_file = b.path(raudio_bindings) }),
         .sokol_gfx_mod = b.addModule("sokol_gfx", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
         .sokol_gp_mod = b.addModule("sokol_gp", .{ .root_source_file = b.path(sokol_gp_bindings) }),
+        .emscripten_mod = b.addModule("emscripten", .{ .root_source_file = b.path(emscripten_bindings) }),
         // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
     };
 }
@@ -341,6 +374,12 @@ fn buildFreetype(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     freetype.addIncludePath(b.path(freetype_path ++ "/include"));
     freetype.linkLibC();
 
+    // Add emscripten system includes
+    if (opt.is_wasm) {
+        const emsdk = b.dependency("emsdk", .{});
+        freetype.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
+    }
+
     b.installArtifact(freetype);
 
     return freetype;
@@ -423,6 +462,12 @@ fn buildPhysfs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     physfs.addIncludePath(b.path(physfs_path ++ "/src"));
     physfs.linkLibC();
 
+    // Add emscripten system includes
+    if (opt.is_wasm) {
+        const emsdk = b.dependency("emsdk", .{});
+        physfs.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
+    }
+
     b.installArtifact(physfs);
 
     return physfs;
@@ -450,7 +495,13 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     raudio.root_module.addCMacro("RAUDIO_STANDALONE", "1");
     raudio.root_module.addCMacro("SUPPORT_MODULE_RAUDIO", "1");
 
-    // const src_dir = glfw_path ++ "/src/";
+    // Add emscripten system includes
+    if (opt.is_wasm) {
+        const emsdk = b.dependency("emsdk", .{});
+        raudio.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
+    }
+
+    b.installArtifact(raudio);
 
     return raudio;
 }
@@ -479,7 +530,13 @@ fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     header_libs.addIncludePath(b.path(freetype_path ++ "/include")); // for fontstash
     header_libs.linkLibC();
 
-    // const src_dir = glfw_path ++ "/src/";
+    // Add emscripten system includes
+    if (opt.is_wasm) {
+        const emsdk = b.dependency("emsdk", .{});
+        header_libs.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
+    }
+
+    b.installArtifact(header_libs);
 
     return header_libs;
 }
@@ -503,7 +560,7 @@ fn buildExample(
     exe.root_module.addImport("raudio", mods.raudio_mod);
     exe.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     exe.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-    // exe.root_module.addImport("freetype", mods.freetype_mod);
+    exe.root_module.addImport("emscripten", mods.emscripten_mod);
 
     exe.linkLibC(); // Add this line
 
@@ -518,10 +575,101 @@ fn buildExample(
     b.installArtifact(exe);
 }
 
+// wasm example
+fn buildWasmExample(
+    b: *std.Build,
+    opt: RyteBuildOptions,
+    deps: RyteDependencies,
+    mods: RyteModules,
+    emsdk: *Build.Dependency,
+) !void {
+    const lib = b.addStaticLibrary(.{
+        .name = "ryte_example",
+        .root_source_file = b.path(example_root_source),
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
+
+    lib.root_module.addImport("glfw", mods.glfw_mod);
+    lib.root_module.addImport("physfs", mods.physfs_mod);
+    lib.root_module.addImport("raudio", mods.raudio_mod);
+    lib.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
+    lib.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
+
+    lib.root_module.addImport("emscripten", mods.emscripten_mod);
+
+    lib.linkLibrary(deps.freetype);
+    lib.linkLibrary(deps.physfs);
+    lib.linkLibrary(deps.raudio);
+    lib.linkLibrary(deps.header_libs);
+
+    // Emscripten linker step
+    const emcc_path = emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
+    const emcc = b.addSystemCommand(&.{emcc_path});
+    emcc.setName("emcc");
+
+    if (opt.optimize == .Debug) {
+        emcc.addArgs(&.{ "-Og", "-sSAFE_HEAP=1", "-sSTACK_OVERFLOW_CHECK=1" });
+    } else {
+        emcc.addArg("-sASSERTIONS=0");
+        if (opt.optimize == .ReleaseSmall) {
+            emcc.addArg("-Oz");
+        } else {
+            emcc.addArg("-O3");
+        }
+    }
+
+    // PROPERTIES LINK_FLAGS
+    // "-s TOTAL_STACK=64MB -s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3
+    // -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']
+    // -s EXPORTED_FUNCTIONS=['_main','_k_fs_add_droppedfile'] ")
+
+    emcc.addArgs(&.{
+        "-sTOTAL_STACK=64MB",
+        "-sINITIAL_MEMORY=256MB",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sUSE_GLFW=3",
+        "-sUSE_WEBGL2=1",
+        "-sFULL_ES3=1",
+        // "-sMALLOC='emmalloc'",
+        // "-sNO_FILESYSTEM=1",
+        "--shell-file",
+        "src/web/shell.html",
+        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
+    });
+
+    emcc.addArtifactArg(lib);
+    for (lib.getCompileDependencies(false)) |item| {
+        if (item.kind == .lib) {
+            emcc.addArtifactArg(item);
+        }
+    }
+
+    emcc.addArg("-o");
+    const out_file = emcc.addOutputFileArg("ryte_example.html");
+
+    const install = b.addInstallDirectory(.{
+        .source_dir = out_file.dirname(),
+        .install_dir = .prefix,
+        .install_subdir = "web",
+    });
+    install.step.dependOn(&emcc.step);
+    b.getInstallStep().dependOn(&install.step);
+
+    // Run step
+    const emrun_path = b.findProgram(&.{"emrun"}, &.{}) catch
+        emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "emrun" }).getPath(b);
+    const run = b.addSystemCommand(&.{ emrun_path, b.fmt("{s}/web/ryte_example.html", .{b.install_path}) });
+    b.step("run-wasm", "Run WebAssembly version in browser").dependOn(&run.step);
+}
+
 // build entry point
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const emsdk = b.dependency("emsdk", .{});
 
     const opt = RyteBuildOptions{
         .target = target,
@@ -532,6 +680,13 @@ pub fn build(b: *std.Build) !void {
         .is_windows = target.result.os.tag == .windows,
     };
 
+    // Setup emsdk if needed
+    if (opt.is_wasm) {
+        if (try emSdkSetupStep(b, emsdk)) |emsdk_setup| {
+            b.getInstallStep().dependOn(&emsdk_setup.step);
+        }
+    }
+
     const deps = RyteDependencies{
         .glfw = try buildGlfw(b, opt),
         .freetype = try buildFreetype(b, opt),
@@ -541,5 +696,9 @@ pub fn build(b: *std.Build) !void {
     };
     const mods = getModules(b);
 
-    try buildExample(b, opt, deps, mods);
+    if (!opt.is_wasm) {
+        try buildExample(b, opt, deps, mods);
+    } else {
+        try buildWasmExample(b, opt, deps, mods, emsdk);
+    }
 }
