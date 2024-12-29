@@ -11,12 +11,16 @@ const deps_prefix = "./deps/";
 const glfw_path = deps_prefix ++ "glfw-3.4";
 const freetype_path = deps_prefix ++ "freetype-2.13.2";
 const physfs_path = deps_prefix ++ "physfs-3.2.0";
-const log_c_path = deps_prefix ++ "log_c_f9ea349";
-const sokol_path = deps_prefix ++ "sokol_547f455";
+
+// paths: deps (single header libs)
+const sokol_gfx_path = deps_prefix ++ "sokol_547f455";
 const sokol_gp_path = deps_prefix ++ "sokol_gp_a6ce39f";
 const stb_path = deps_prefix ++ "stb_013ac3b";
-const fontstash_path = deps_prefix ++ "fontstash_b5ddc97";
+const fontstash_path = deps_prefix ++ "fontstash_b5ddc97/src";
+const mg_libs_path = deps_prefix ++ "mg_libs";
+const header_impl_src = deps_prefix ++ "/header_impls.c";
 
+// paths: bindings files
 const bindings_prefix = "./bindings/";
 const glfw_bindings = bindings_prefix ++ "glfw3_bindings.zig";
 const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
@@ -41,6 +45,7 @@ const RyteDependencies = struct {
     glfw: ?*Compile,
     freetype: *Compile,
     physfs: *Compile,
+    header_libs: *Compile,
 };
 
 // for bindings
@@ -418,6 +423,35 @@ fn buildPhysfs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     return physfs;
 }
 
+// deps: sokol_gfx, sokol_gp, fontstash, stb libs
+fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
+    //
+    const header_libs =
+        b.addStaticLibrary(.{
+        .name = "header_libs",
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
+    b.installArtifact(header_libs);
+
+    header_libs.addCSourceFile(.{
+        .file = b.path(header_impl_src),
+        .flags = &.{},
+    });
+
+    header_libs.addIncludePath(b.path(sokol_gfx_path));
+    header_libs.addIncludePath(b.path(sokol_gp_path));
+    header_libs.addIncludePath(b.path(fontstash_path));
+    header_libs.addIncludePath(b.path(stb_path));
+    header_libs.addIncludePath(b.path(mg_libs_path));
+    header_libs.addIncludePath(b.path(freetype_path ++ "/include")); // for fontstash
+    header_libs.linkLibC();
+
+    // const src_dir = glfw_path ++ "/src/";
+
+    return header_libs;
+}
+
 // example
 fn buildExample(
     b: *std.Build,
@@ -443,6 +477,7 @@ fn buildExample(
     }
     exe.linkLibrary(deps.freetype);
     exe.linkLibrary(deps.physfs);
+    exe.linkLibrary(deps.header_libs);
 
     b.installArtifact(exe);
 }
@@ -465,6 +500,7 @@ pub fn build(b: *std.Build) !void {
         .glfw = try buildGlfw(b, opt),
         .freetype = try buildFreetype(b, opt),
         .physfs = try buildPhysfs(b, opt),
+        .header_libs = try buildHeaderOnlyLibs(b, opt),
     };
     const mods = getModules(b);
 
