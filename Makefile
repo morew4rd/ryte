@@ -1,5 +1,6 @@
 .PHONY: default build run
 .PHONY: b-windows b-linux b-wasm
+.PHONY: r-windows r-wasm
 
 default: build run
 
@@ -19,3 +20,9 @@ b-wasm:
 
 run:
 	./zig-out/bin/ryte_example
+
+r-windows:
+	wine ./zig-out/bin/ryte_example.exe
+
+r-wasm:
+	python -m http.server -d ./zig-out/web 8000

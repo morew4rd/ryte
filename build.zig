@@ -547,64 +547,52 @@ fn buildExample(
     opt: RyteBuildOptions,
     deps: RyteDependencies,
     mods: RyteModules,
+    emsdk: ?*Build.Dependency,
 ) !void {
-    const exe = b.addExecutable(.{
-        .name = "ryte_example",
-        .root_source_file = b.path(example_root_source),
-        .target = opt.target,
-        .optimize = opt.optimize,
-    });
+    const is_wasm = opt.is_wasm;
 
-    exe.root_module.addImport("glfw", mods.glfw_mod);
-    exe.root_module.addImport("physfs", mods.physfs_mod);
-    exe.root_module.addImport("raudio", mods.raudio_mod);
-    exe.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
-    exe.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-    exe.root_module.addImport("emscripten", mods.emscripten_mod);
+    // Create either an executable or static library
+    const app = if (is_wasm)
+        b.addStaticLibrary(.{
+            .name = "ryte_example",
+            .root_source_file = b.path(example_root_source),
+            .target = opt.target,
+            .optimize = opt.optimize,
+        })
+    else
+        b.addExecutable(.{
+            .name = "ryte_example",
+            .root_source_file = b.path(example_root_source),
+            .target = opt.target,
+            .optimize = opt.optimize,
+        });
 
-    exe.linkLibC(); // Add this line
+    // Add imports
+    app.root_module.addImport("glfw", mods.glfw_mod);
+    app.root_module.addImport("physfs", mods.physfs_mod);
+    app.root_module.addImport("raudio", mods.raudio_mod);
+    app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
+    app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
+    app.root_module.addImport("emscripten", mods.emscripten_mod);
 
-    if (!opt.is_wasm) {
-        exe.linkLibrary(deps.glfw.?);
+    // Link libraries
+    app.linkLibC();
+    if (!is_wasm) {
+        app.linkLibrary(deps.glfw.?);
     }
-    exe.linkLibrary(deps.freetype);
-    exe.linkLibrary(deps.physfs);
-    exe.linkLibrary(deps.raudio);
-    exe.linkLibrary(deps.header_libs);
+    app.linkLibrary(deps.freetype);
+    app.linkLibrary(deps.physfs);
+    app.linkLibrary(deps.raudio);
+    app.linkLibrary(deps.header_libs);
 
-    b.installArtifact(exe);
-}
+    // For native builds, just install the executable
+    if (!is_wasm) {
+        b.installArtifact(app);
+        return;
+    }
 
-// wasm example
-fn buildWasmExample(
-    b: *std.Build,
-    opt: RyteBuildOptions,
-    deps: RyteDependencies,
-    mods: RyteModules,
-    emsdk: *Build.Dependency,
-) !void {
-    const lib = b.addStaticLibrary(.{
-        .name = "ryte_example",
-        .root_source_file = b.path(example_root_source),
-        .target = opt.target,
-        .optimize = opt.optimize,
-    });
-
-    lib.root_module.addImport("glfw", mods.glfw_mod);
-    lib.root_module.addImport("physfs", mods.physfs_mod);
-    lib.root_module.addImport("raudio", mods.raudio_mod);
-    lib.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
-    lib.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-
-    lib.root_module.addImport("emscripten", mods.emscripten_mod);
-
-    lib.linkLibrary(deps.freetype);
-    lib.linkLibrary(deps.physfs);
-    lib.linkLibrary(deps.raudio);
-    lib.linkLibrary(deps.header_libs);
-
-    // Emscripten linker step
-    const emcc_path = emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
+    // For WASM builds, run the emscripten linker step
+    const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
     const emcc = b.addSystemCommand(&.{emcc_path});
     emcc.setName("emcc");
 
@@ -619,11 +607,6 @@ fn buildWasmExample(
         }
     }
 
-    // PROPERTIES LINK_FLAGS
-    // "-s TOTAL_STACK=64MB -s INITIAL_MEMORY=256MB -s ALLOW_MEMORY_GROWTH=1 -s USE_GLFW=3
-    // -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']
-    // -s EXPORTED_FUNCTIONS=['_main','_k_fs_add_droppedfile'] ")
-
     emcc.addArgs(&.{
         "-sTOTAL_STACK=64MB",
         "-sINITIAL_MEMORY=256MB",
@@ -631,16 +614,14 @@ fn buildWasmExample(
         "-sUSE_GLFW=3",
         "-sUSE_WEBGL2=1",
         "-sFULL_ES3=1",
-        // "-sMALLOC='emmalloc'",
-        // "-sNO_FILESYSTEM=1",
         "--shell-file",
         "src/web/shell.html",
         "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
         "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
     });
 
-    emcc.addArtifactArg(lib);
-    for (lib.getCompileDependencies(false)) |item| {
+    emcc.addArtifactArg(app);
+    for (app.getCompileDependencies(false)) |item| {
         if (item.kind == .lib) {
             emcc.addArtifactArg(item);
         }
@@ -656,12 +637,6 @@ fn buildWasmExample(
     });
     install.step.dependOn(&emcc.step);
     b.getInstallStep().dependOn(&install.step);
-
-    // Run step
-    const emrun_path = b.findProgram(&.{"emrun"}, &.{}) catch
-        emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "emrun" }).getPath(b);
-    const run = b.addSystemCommand(&.{ emrun_path, b.fmt("{s}/web/ryte_example.html", .{b.install_path}) });
-    b.step("run-wasm", "Run WebAssembly version in browser").dependOn(&run.step);
 }
 
 // build entry point
@@ -696,9 +671,5 @@ pub fn build(b: *std.Build) !void {
     };
     const mods = getModules(b);
 
-    if (!opt.is_wasm) {
-        try buildExample(b, opt, deps, mods);
-    } else {
-        try buildWasmExample(b, opt, deps, mods, emsdk);
-    }
+    try buildExample(b, opt, deps, mods, emsdk);
 }
