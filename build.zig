@@ -11,9 +11,10 @@ const deps_prefix = "./deps/";
 const glfw_path = deps_prefix ++ "glfw-3.4";
 const freetype_path = deps_prefix ++ "freetype-2.13.2";
 const physfs_path = deps_prefix ++ "physfs-3.2.0";
+const raudio_path = deps_prefix ++ "raudio_fe56fa7/src";
 
 // paths: deps (single header libs)
-const sokol_gfx_path = deps_prefix ++ "sokol_547f455";
+const sokol_path = deps_prefix ++ "sokol_547f455";
 const sokol_gp_path = deps_prefix ++ "sokol_gp_a6ce39f";
 const stb_path = deps_prefix ++ "stb_013ac3b";
 const fontstash_path = deps_prefix ++ "fontstash_b5ddc97/src";
@@ -24,6 +25,7 @@ const header_impl_src = deps_prefix ++ "/header_impls.c";
 const bindings_prefix = "./bindings/";
 const glfw_bindings = bindings_prefix ++ "glfw3_bindings.zig";
 const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
+const raudio_bindings = bindings_prefix ++ "raudio_bindings.zig";
 const sokol_gfx_bindings = bindings_prefix ++ "sokol_gfx_bindings.zig";
 const sokol_gp_bindings = bindings_prefix ++ "sokol_gp_bindings.zig";
 // const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
@@ -45,6 +47,7 @@ const RyteDependencies = struct {
     glfw: ?*Compile,
     freetype: *Compile,
     physfs: *Compile,
+    raudio: *Compile,
     header_libs: *Compile,
 };
 
@@ -52,6 +55,7 @@ const RyteDependencies = struct {
 const RyteModules = struct {
     glfw_mod: *Module,
     physfs_mod: *Module,
+    raudio_mod: *Module,
     sokol_gfx_mod: *Module,
     sokol_gp_mod: *Module,
     // freetype_mod: *Module,
@@ -62,6 +66,7 @@ fn getModules(b: *std.Build) RyteModules {
     return RyteModules{
         .glfw_mod = b.addModule("glfw", .{ .root_source_file = b.path(glfw_bindings) }),
         .physfs_mod = b.addModule("physfs", .{ .root_source_file = b.path(physfs_bindings) }),
+        .raudio_mod = b.addModule("raudio", .{ .root_source_file = b.path(raudio_bindings) }),
         .sokol_gfx_mod = b.addModule("sokol_gfx", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
         .sokol_gp_mod = b.addModule("sokol_gp", .{ .root_source_file = b.path(sokol_gp_bindings) }),
         // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
@@ -423,6 +428,32 @@ fn buildPhysfs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     return physfs;
 }
 
+// deps: raudio
+fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
+    //
+    const raudio =
+        b.addStaticLibrary(.{
+        .name = "raudio",
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
+    b.installArtifact(raudio);
+
+    raudio.addCSourceFile(.{
+        .file = b.path(raudio_path ++ "/raudio.c"),
+        .flags = &.{},
+    });
+
+    raudio.addIncludePath(b.path(raudio_path));
+    raudio.linkLibC();
+
+    raudio.root_module.addCMacro("RAUDIO_STANDALONE", "1");
+
+    // const src_dir = glfw_path ++ "/src/";
+
+    return raudio;
+}
+
 // deps: sokol_gfx, sokol_gp, fontstash, stb libs
 fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     //
@@ -439,7 +470,7 @@ fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         .flags = &.{},
     });
 
-    header_libs.addIncludePath(b.path(sokol_gfx_path));
+    header_libs.addIncludePath(b.path(sokol_path));
     header_libs.addIncludePath(b.path(sokol_gp_path));
     header_libs.addIncludePath(b.path(fontstash_path));
     header_libs.addIncludePath(b.path(stb_path));
@@ -468,6 +499,7 @@ fn buildExample(
 
     exe.root_module.addImport("glfw", mods.glfw_mod);
     exe.root_module.addImport("physfs", mods.physfs_mod);
+    exe.root_module.addImport("raudio", mods.raudio_mod);
     exe.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     exe.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
     // exe.root_module.addImport("freetype", mods.freetype_mod);
@@ -477,6 +509,7 @@ fn buildExample(
     }
     exe.linkLibrary(deps.freetype);
     exe.linkLibrary(deps.physfs);
+    exe.linkLibrary(deps.raudio);
     exe.linkLibrary(deps.header_libs);
 
     b.installArtifact(exe);
@@ -500,6 +533,7 @@ pub fn build(b: *std.Build) !void {
         .glfw = try buildGlfw(b, opt),
         .freetype = try buildFreetype(b, opt),
         .physfs = try buildPhysfs(b, opt),
+        .raudio = try buildRaudio(b, opt),
         .header_libs = try buildHeaderOnlyLibs(b, opt),
     };
     const mods = getModules(b);
