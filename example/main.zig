@@ -2,7 +2,7 @@ const std = @import("std");
 
 // native dependencies
 const glfw = @import("glfw");
-const phyfs = @import("phyfs");
+const physfs = @import("physfs");
 const sg = @import("sokol_gfx");
 const sgp = @import("sokol_gp");
 
@@ -13,12 +13,17 @@ const initial_title = "ryte -- lyte2d in zig";
 
 pub fn main() !void {
     std.debug.print("ryte example.\n", .{});
+
     if (glfw.glfwInit() == 0) {
         var err: [*c]const u8 = undefined;
         _ = glfw.glfwGetError(&err);
         std.debug.print("glfw init failed: {s}\n", .{err});
         return error.GlfwInitFailed;
     }
+
+    _ = physfs.PHYSFS_init("");
+    defer _ = physfs.PHYSFS_deinit();
+
     const win = glfw.glfwCreateWindow(W, H, initial_title, null, null);
     if (win == null) {
         return error.CouldntOpenWindow;

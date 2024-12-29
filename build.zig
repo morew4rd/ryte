@@ -39,7 +39,8 @@ const RyteBuildOptions = struct {
 //
 const RyteDependencies = struct {
     glfw: ?*Compile,
-    freetype: *Compile, // Add this line
+    freetype: *Compile,
+    physfs: *Compile,
 };
 
 // for bindings
@@ -56,8 +57,8 @@ fn getModules(b: *std.Build) RyteModules {
     return RyteModules{
         .glfw_mod = b.addModule("glfw", .{ .root_source_file = b.path(glfw_bindings) }),
         .physfs_mod = b.addModule("physfs", .{ .root_source_file = b.path(physfs_bindings) }),
-        .sokol_gfx_mod = b.addModule("physfs", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
-        .sokol_gp_mod = b.addModule("physfs", .{ .root_source_file = b.path(sokol_gp_bindings) }),
+        .sokol_gfx_mod = b.addModule("sokol_gfx", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
+        .sokol_gp_mod = b.addModule("sokol_gp", .{ .root_source_file = b.path(sokol_gp_bindings) }),
         // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
     };
 }
@@ -335,6 +336,88 @@ fn buildFreetype(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     return freetype;
 }
 
+// dep: physfs
+fn buildPhysfs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
+    const physfs = b.addStaticLibrary(.{
+        .name = "physfs",
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
+
+    const physfs_sources = &[_][]const u8{
+        physfs_path ++ "/src/physfs.c",
+        physfs_path ++ "/src/physfs_byteorder.c",
+        physfs_path ++ "/src/physfs_unicode.c",
+        physfs_path ++ "/src/physfs_platform_posix.c",
+        physfs_path ++ "/src/physfs_platform_unix.c",
+        physfs_path ++ "/src/physfs_platform_windows.c",
+        physfs_path ++ "/src/physfs_platform_os2.c",
+        physfs_path ++ "/src/physfs_platform_qnx.c",
+        physfs_path ++ "/src/physfs_platform_android.c",
+        physfs_path ++ "/src/physfs_archiver_dir.c",
+        physfs_path ++ "/src/physfs_archiver_unpacked.c",
+        physfs_path ++ "/src/physfs_archiver_grp.c",
+        physfs_path ++ "/src/physfs_archiver_hog.c",
+        physfs_path ++ "/src/physfs_archiver_7z.c",
+        physfs_path ++ "/src/physfs_archiver_mvl.c",
+        physfs_path ++ "/src/physfs_archiver_qpak.c",
+        physfs_path ++ "/src/physfs_archiver_wad.c",
+        physfs_path ++ "/src/physfs_archiver_zip.c",
+        physfs_path ++ "/src/physfs_archiver_slb.c",
+        physfs_path ++ "/src/physfs_archiver_iso9660.c",
+        physfs_path ++ "/src/physfs_archiver_vdf.c",
+    };
+
+    const physfs_flags = &[_][]const u8{
+        "-DPHYSFS_BUILD_STATIC=1",
+        "-DPHYSFS_BUILD_SHARED=0",
+        "-DPHYSFS_BUILD_TEST=0",
+        "-DPHYSFS_BUILD_DOCS=0",
+        "-DPHYSFS_ARCHIVE_GRP=0",
+        "-DPHYSFS_ARCHIVE_WAD=0",
+        "-DPHYSFS_ARCHIVE_HOG=0",
+        "-DPHYSFS_ARCHIVE_MVL=0",
+        "-DPHYSFS_ARCHIVE_QPAK=0",
+        "-DPHYSFS_ARCHIVE_SLB=0",
+        "-DPHYSFS_ARCHIVE_ISO9660=0",
+        "-DPHYSFS_ARCHIVE_VDF=0",
+        "-DPHYSFS_ARCHIVE_ZIP=1",
+        "-DPHYSFS_ARCHIVE_7Z=1",
+    };
+
+    physfs.addCSourceFiles(.{
+        .files = physfs_sources,
+        .flags = physfs_flags,
+    });
+
+    if (opt.is_macos) {
+        physfs.addCSourceFile(.{
+            .file = b.path(physfs_path ++ "/src/physfs_platform_apple.m"),
+            .flags = physfs_flags,
+        });
+    }
+    // TODO windows / linux C files?
+
+    if (opt.is_windows) {
+        physfs.linkSystemLibrary("ws2_32");
+        physfs.linkSystemLibrary("advapi32");
+        physfs.linkSystemLibrary("shell32");
+        physfs.linkSystemLibrary("user32");
+    } else if (opt.is_macos) {
+        physfs.linkFramework("IOKit");
+        physfs.linkFramework("Foundation");
+    } else if (opt.is_linux) {
+        physfs.linkSystemLibrary("pthread");
+    }
+
+    physfs.addIncludePath(b.path(physfs_path ++ "/src"));
+    physfs.linkLibC();
+
+    b.installArtifact(physfs);
+
+    return physfs;
+}
+
 // example
 fn buildExample(
     b: *std.Build,
@@ -358,8 +441,8 @@ fn buildExample(
     if (!opt.is_wasm) {
         exe.linkLibrary(deps.glfw.?);
     }
-
     exe.linkLibrary(deps.freetype);
+    exe.linkLibrary(deps.physfs);
 
     b.installArtifact(exe);
 }
@@ -381,6 +464,7 @@ pub fn build(b: *std.Build) !void {
     const deps = RyteDependencies{
         .glfw = try buildGlfw(b, opt),
         .freetype = try buildFreetype(b, opt),
+        .physfs = try buildPhysfs(b, opt),
     };
     const mods = getModules(b);
 
