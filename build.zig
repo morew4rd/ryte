@@ -22,6 +22,7 @@ const glfw_bindings = bindings_prefix ++ "glfw3_bindings.zig";
 const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
 const sokol_gfx_bindings = bindings_prefix ++ "sokol_gfx_bindings.zig";
 const sokol_gp_bindings = bindings_prefix ++ "sokol_gp_bindings.zig";
+// const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
 
 const example_root_source = "./example/main.zig";
 
@@ -38,6 +39,7 @@ const RyteBuildOptions = struct {
 //
 const RyteDependencies = struct {
     glfw: ?*Compile,
+    freetype: *Compile, // Add this line
 };
 
 // for bindings
@@ -46,6 +48,7 @@ const RyteModules = struct {
     physfs_mod: *Module,
     sokol_gfx_mod: *Module,
     sokol_gp_mod: *Module,
+    // freetype_mod: *Module,
 };
 
 // bindings
@@ -55,6 +58,7 @@ fn getModules(b: *std.Build) RyteModules {
         .physfs_mod = b.addModule("physfs", .{ .root_source_file = b.path(physfs_bindings) }),
         .sokol_gfx_mod = b.addModule("physfs", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
         .sokol_gp_mod = b.addModule("physfs", .{ .root_source_file = b.path(sokol_gp_bindings) }),
+        // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
     };
 }
 
@@ -224,7 +228,114 @@ fn buildGlfw(b: *std.Build, opt: RyteBuildOptions) !?*Compile {
     return glfw;
 }
 
-//
+//dep: freetype
+fn buildFreetype(b: *std.Build, opt: RyteBuildOptions) !*Compile {
+    const freetype = b.addStaticLibrary(.{
+        .name = "freetype",
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
+
+    const freetype_sources = &[_][]const u8{
+        // Base layer
+        freetype_path ++ "/src/base/ftbase.c",
+        freetype_path ++ "/src/base/ftbbox.c",
+        freetype_path ++ "/src/base/ftbdf.c",
+        freetype_path ++ "/src/base/ftbitmap.c",
+        freetype_path ++ "/src/base/ftcid.c",
+        freetype_path ++ "/src/base/ftfstype.c",
+        freetype_path ++ "/src/base/ftgasp.c",
+        freetype_path ++ "/src/base/ftglyph.c",
+        freetype_path ++ "/src/base/ftgxval.c",
+        freetype_path ++ "/src/base/ftinit.c",
+        freetype_path ++ "/src/base/ftmm.c",
+        freetype_path ++ "/src/base/ftotval.c",
+        freetype_path ++ "/src/base/ftpatent.c",
+        freetype_path ++ "/src/base/ftpfr.c",
+        freetype_path ++ "/src/base/ftstroke.c",
+        freetype_path ++ "/src/base/ftsynth.c",
+        freetype_path ++ "/src/base/ftsystem.c",
+        freetype_path ++ "/src/base/fttype1.c",
+        freetype_path ++ "/src/base/ftwinfnt.c",
+        freetype_path ++ "/src/base/ftdebug.c",
+
+        freetype_path ++ "/src/svg/ftsvg.c",
+
+        // Font drivers
+        freetype_path ++ "/src/bdf/bdf.c",
+        freetype_path ++ "/src/cff/cff.c",
+        freetype_path ++ "/src/cid/type1cid.c",
+        freetype_path ++ "/src/pcf/pcf.c",
+        freetype_path ++ "/src/pfr/pfr.c",
+        freetype_path ++ "/src/sfnt/sfnt.c",
+        freetype_path ++ "/src/truetype/truetype.c",
+        freetype_path ++ "/src/type1/type1.c",
+        freetype_path ++ "/src/type42/type42.c",
+        freetype_path ++ "/src/winfonts/winfnt.c",
+
+        // Rasterizers
+        freetype_path ++ "/src/raster/raster.c",
+        freetype_path ++ "/src/smooth/smooth.c",
+        freetype_path ++ "/src/sdf/sdf.c",
+
+        // Auxiliary modules
+        freetype_path ++ "/src/autofit/autofit.c",
+        freetype_path ++ "/src/cache/ftcache.c",
+        freetype_path ++ "/src/gzip/ftgzip.c",
+        freetype_path ++ "/src/lzw/ftlzw.c",
+        freetype_path ++ "/src/bzip2/ftbzip2.c",
+        freetype_path ++ "/src/gxvalid/gxvalid.c",
+        freetype_path ++ "/src/otvalid/otvalid.c",
+        freetype_path ++ "/src/psaux/psaux.c",
+        freetype_path ++ "/src/pshinter/pshinter.c",
+        freetype_path ++ "/src/psnames/psnames.c",
+    };
+
+    const freetype_flags = &[_][]const u8{
+        "-DFT2_BUILD_LIBRARY",
+        "-DFT_CONFIG_OPTION_ERROR_STRINGS",
+        "-DFT_CONFIG_MODULES_H=\"freetype/config/ftmodule.h\"",
+        "-DFT_ERR_PREFIX=FT_Err_",
+        "-I" ++ freetype_path ++ "/include",
+        "-I" ++ freetype_path ++ "/src",
+    };
+
+    freetype.addCSourceFiles(.{
+        .files = freetype_sources,
+        .flags = freetype_flags,
+    });
+
+    if (opt.is_windows) {
+        freetype.addCSourceFile(.{
+            .file = b.path(freetype_path ++ "/builds/windows/ftsystem.c"),
+            .flags = freetype_flags,
+        });
+    } else if (opt.is_macos or opt.is_linux) {
+        freetype.addCSourceFile(.{
+            .file = b.path(freetype_path ++ "/builds/unix/ftsystem.c"),
+            .flags = freetype_flags,
+        });
+    }
+    if (opt.is_macos) {
+        freetype.linkFramework("CoreFoundation");
+        freetype.linkFramework("CoreGraphics");
+        freetype.linkFramework("CoreText");
+    }
+    // Add POSIX headers for Unix systems
+    if (opt.is_macos or opt.is_linux) {
+        freetype.root_module.addCMacro("HAVE_UNISTD_H", "1");
+        freetype.root_module.addCMacro("HAVE_FCNTL_H", "1");
+    }
+
+    freetype.addIncludePath(b.path(freetype_path ++ "/include"));
+    freetype.linkLibC();
+
+    b.installArtifact(freetype);
+
+    return freetype;
+}
+
+// example
 fn buildExample(
     b: *std.Build,
     opt: RyteBuildOptions,
@@ -242,10 +353,13 @@ fn buildExample(
     exe.root_module.addImport("physfs", mods.physfs_mod);
     exe.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     exe.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
+    // exe.root_module.addImport("freetype", mods.freetype_mod);
 
     if (!opt.is_wasm) {
         exe.linkLibrary(deps.glfw.?);
     }
+
+    exe.linkLibrary(deps.freetype);
 
     b.installArtifact(exe);
 }
@@ -266,6 +380,7 @@ pub fn build(b: *std.Build) !void {
 
     const deps = RyteDependencies{
         .glfw = try buildGlfw(b, opt),
+        .freetype = try buildFreetype(b, opt),
     };
     const mods = getModules(b);
 
