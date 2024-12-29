@@ -165,17 +165,17 @@ fn buildGlfw(b: *std.Build, opt: RyteBuildOptions) !?*Compile {
             .flags = &.{"-D_GLFW_COCOA"},
         });
     } else if (opt.is_linux) {
-        if (b.lazyDependency("system_sdk", .{})) |system_sdk| {
-            glfw.addSystemIncludePath(system_sdk.path("linux/include"));
-            glfw.addSystemIncludePath(system_sdk.path("linux/include/wayland"));
-            glfw.addIncludePath(b.path(src_dir ++ "wayland"));
+        // if (b.lazyDependency("system_sdk", .{})) |system_sdk| {
+        //     glfw.addSystemIncludePath(system_sdk.path("linux/include"));
+        //     glfw.addSystemIncludePath(system_sdk.path("linux/include/wayland"));
+        //     glfw.addIncludePath(b.path(src_dir ++ "wayland"));
 
-            if (opt.target.result.cpu.arch.isX86()) {
-                glfw.addLibraryPath(system_sdk.path("linux/lib/x86_64-linux-gnu"));
-            } else {
-                glfw.addLibraryPath(system_sdk.path("linux/lib/aarch64-linux-gnu"));
-            }
-        }
+        //     if (opt.target.result.cpu.arch.isX86()) {
+        //         glfw.addLibraryPath(system_sdk.path("linux/lib/x86_64-linux-gnu"));
+        //     } else {
+        //         glfw.addLibraryPath(system_sdk.path("linux/lib/aarch64-linux-gnu"));
+        //     }
+        // }
         glfw.addCSourceFiles(.{
             .files = &.{
                 src_dir ++ "platform.c",
