@@ -69,16 +69,32 @@ pub fn main() !void {
     }
 }
 
+var angle: f32 = 0.7;
+
 fn mainLoop(win: ?*glfw.GLFWwindow) void {
+    var fb_width: c_int = undefined;
+    var fb_height: c_int = undefined;
+    glfw.glfwGetFramebufferSize(win, &fb_width, &fb_height);
+
+    var win_width: c_int = undefined;
+    var win_height: c_int = undefined;
+    glfw.glfwGetWindowSize(win, &win_width, &win_height);
+
+    const scale_x = @as(f32, @floatFromInt(fb_width)) / @as(f32, @floatFromInt(win_width));
+    const scale_y = @as(f32, @floatFromInt(fb_height)) / @as(f32, @floatFromInt(win_height));
+
     var pass: sg.sg_pass = .{};
-    sgp.sgp_begin(W, H);
+    sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
     sgp.sgp_reset_transform();
+    sgp.sgp_translate(150 * scale_x, 150 * scale_y);
+    // sgp.sgp_rotate(angle);
+    // angle += 0.01;
 
     sgp.sgp_set_color(1, 1, 0, 1);
-    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+    sgp.sgp_draw_filled_rect(20, 20, 300 * scale_x, 300 * scale_y);
 
-    pass.swapchain.width = W;
-    pass.swapchain.height = H;
+    pass.swapchain.width = @intCast(fb_width);
+    pass.swapchain.height = @intCast(fb_height);
 
     sg.sg_begin_pass(&pass);
     sgp.sgp_flush();
