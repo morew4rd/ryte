@@ -1,9 +1,8 @@
 /* HEADER ONLY LIB CONFIG AND IMPLEMENTATIONS */
 
-/*
-    sokol_gfx.h
-    sokol_gp.h
-*/
+#define EMSC_SHIMS_IMPL
+#include "emsc_shims.h"
+
 
 #define SOKOL_IMPL
 
@@ -35,7 +34,6 @@
 #else
 #define GLFW_INCLUDE_NONE
 #endif
-
 
 
 #define STB_IMAGE_IMPLEMENTATION

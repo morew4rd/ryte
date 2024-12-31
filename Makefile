@@ -1,6 +1,6 @@
 .PHONY: default build run
-.PHONY: b-windows b-linux b-wasm
-.PHONY: r-windows r-wasm
+.PHONY: b-windows b-linux b-emscripten
+.PHONY: r-windows r-emscripten
 
 default: build run
 
@@ -14,7 +14,7 @@ b-linux:
 	zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseSmall
 
 # emscripten
-b-wasm:
+b-emscripten:
 	zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall
 
 
@@ -24,5 +24,5 @@ run:
 r-windows:
 	wine ./zig-out/bin/ryte_example.exe
 
-r-wasm:
+r-emscripten:
 	python -m http.server -d ./zig-out/web 8000
