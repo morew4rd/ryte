@@ -28,7 +28,7 @@ const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
 const raudio_bindings = bindings_prefix ++ "raudio_bindings.zig";
 const sokol_gfx_bindings = bindings_prefix ++ "sokol_gfx_bindings.zig";
 const sokol_gp_bindings = bindings_prefix ++ "sokol_gp_bindings.zig";
-const emscripten_bindings = bindings_prefix ++ "emscripten_bindings.zig";
+const emsc_shims_bindings = bindings_prefix ++ "emsc_shims_bindings.zig";
 // const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
 
 const example_root_source = "./example/main.zig";
@@ -59,7 +59,7 @@ const RyteModules = struct {
     raudio_mod: *Module,
     sokol_gfx_mod: *Module,
     sokol_gp_mod: *Module,
-    emscripten_mod: *Module,
+    emsc_shims_mod: *Module,
     // freetype_mod: *Module,
 };
 
@@ -101,7 +101,7 @@ fn getModules(b: *std.Build) RyteModules {
         .raudio_mod = b.addModule("raudio", .{ .root_source_file = b.path(raudio_bindings) }),
         .sokol_gfx_mod = b.addModule("sokol_gfx", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
         .sokol_gp_mod = b.addModule("sokol_gp", .{ .root_source_file = b.path(sokol_gp_bindings) }),
-        .emscripten_mod = b.addModule("emscripten", .{ .root_source_file = b.path(emscripten_bindings) }),
+        .emsc_shims_mod = b.addModule("emsc", .{ .root_source_file = b.path(emsc_shims_bindings) }),
         // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
     };
 }
@@ -573,7 +573,7 @@ fn buildExample(
     app.root_module.addImport("raudio", mods.raudio_mod);
     app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-    app.root_module.addImport("emscripten", mods.emscripten_mod);
+    app.root_module.addImport("emsc", mods.emsc_shims_mod);
 
     // Link libraries
     app.linkLibC();

@@ -40,8 +40,14 @@ pub fn main() !void {
     if (win == null) {
         return error.CouldntOpenWindow;
     }
-    glfw.glfwMakeContextCurrent(win);
-
+    // Conditional compilation for different platforms
+    if (builtin.target.os.tag == .emscripten) {
+        // Emscripten-specific loop
+        const emsc = @import("emsc");
+        emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
+    } else {
+        glfw.glfwMakeContextCurrent(win);
+    }
     var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
     defer sg.sg_shutdown();
@@ -58,8 +64,9 @@ pub fn main() !void {
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
         // Emscripten-specific loop
-        const emscripten = @import("emscripten");
-        emscripten.emscripten_set_main_loop(emscriptenMainLoop, 0, true);
+        const emsc = @import("emsc");
+        // emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
+        emsc.emscripten_set_main_loop(emscriptenMainLoop, 0, true);
     } else {
         // Desktop-specific loop
         while (glfw.glfwWindowShouldClose(win) == 0) {
@@ -78,20 +85,31 @@ fn mainLoop(win: ?*glfw.GLFWwindow) void {
 
     var win_width: c_int = undefined;
     var win_height: c_int = undefined;
-    glfw.glfwGetWindowSize(win, &win_width, &win_height);
-
+    // Conditional compilation for different platforms
+    if (builtin.target.os.tag == .emscripten) {
+        // Emscripten-specific loop
+        const emsc = @import("emsc");
+        win_width = emsc.emsc_width();
+        win_height = emsc.emsc_height();
+    } else {
+        glfw.glfwGetWindowSize(win, &win_width, &win_height);
+    }
     const scale_x = @as(f32, @floatFromInt(fb_width)) / @as(f32, @floatFromInt(win_width));
     const scale_y = @as(f32, @floatFromInt(fb_height)) / @as(f32, @floatFromInt(win_height));
+    _ = scale_x;
+    _ = scale_y;
 
     var pass: sg.sg_pass = .{};
     sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
     sgp.sgp_reset_transform();
-    sgp.sgp_translate(150 * scale_x, 150 * scale_y);
+    // sgp.sgp_scale(scale_x, scale_y);
+    // sgp.sgp_translate(150 * scale_x, 150 * scale_y);
+    // sgp.sgp_translate(150, 150);
     // sgp.sgp_rotate(angle);
     // angle += 0.01;
 
     sgp.sgp_set_color(1, 1, 0, 1);
-    sgp.sgp_draw_filled_rect(20, 20, 300 * scale_x, 300 * scale_y);
+    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
 
     pass.swapchain.width = @intCast(fb_width);
     pass.swapchain.height = @intCast(fb_height);
