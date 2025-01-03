@@ -94,8 +94,6 @@ var main_window: Window = Window{
     .paddings = .{},
 };
 
-var angle: f32 = 0.7;
-
 fn init() !void {
     if (glfw.glfwInit() == 0) {
         return error.GlfwInitFailed;
@@ -181,32 +179,6 @@ fn deinit() void {
     defer _ = physfs.PHYSFS_deinit();
     defer sg.sg_shutdown();
     defer sgp.sgp_shutdown();
-}
-
-pub fn main() !void {
-    std.debug.print("ryte example.\n", .{});
-    try init();
-    defer deinit();
-
-    main_window.tick_fn = tick_fn;
-
-    // Conditional compilation for different platforms
-    if (builtin.target.os.tag == .emscripten) {
-        const emsc = @import("emsc");
-        emsc.emscripten_set_main_loop(mainLoop, 0, true);
-    } else {
-        // Desktop-specific loop
-        while (glfw.glfwWindowShouldClose(main_window.window) == 0) {
-            mainLoop();
-            glfw.glfwPollEvents();
-        }
-    }
-}
-
-fn tick_fn(ts: TickState) void {
-    _ = ts;
-    sgp.sgp_set_color(1, 1, 0, 1);
-    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
 }
 
 fn mainLoop() callconv(.c) void {
@@ -314,4 +286,40 @@ fn mainLoop() callconv(.c) void {
             emsc.emscripten_cancel_main_loop();
         }
     }
+}
+
+fn setTickFn(tick_fn: *const fn (TickState) void, udata: ?*anyopaque) void {
+    main_window.tick_fn = tick_fn;
+    main_window.tick_data = udata;
+}
+
+fn startMainLoop() void {
+    // Conditional compilation for different platforms
+    if (builtin.target.os.tag == .emscripten) {
+        const emsc = @import("emsc");
+        emsc.emscripten_set_main_loop(mainLoop, 0, true);
+    } else {
+        // Desktop-specific loop
+        while (glfw.glfwWindowShouldClose(main_window.window) == 0) {
+            mainLoop();
+            glfw.glfwPollEvents();
+        }
+    }
+}
+
+pub fn main() !void {
+    std.debug.print("ryte example.\n", .{});
+
+    try init();
+    defer deinit();
+    setTickFn(tickFn, null);
+    startMainLoop();
+}
+
+// var angle: f32 = 0.7;
+
+fn tickFn(ts: TickState) void {
+    _ = ts;
+    sgp.sgp_set_color(1, 1, 0, 1);
+    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
 }
