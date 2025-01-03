@@ -27,6 +27,16 @@ const FilterMode = enum(u8) {
     linear = 3,
 };
 
+const TickState = struct {
+    udata: ?*anyopaque,
+    delta_time: f64,
+    total_time: f64,
+    width: c_int,
+    height: c_int,
+    resized: bool,
+    fullscreen: bool,
+};
+
 const Window = struct {
     window: *glfw.struct_GLFWwindow,
     monitor: *glfw.struct_GLFWmonitor,
@@ -43,6 +53,25 @@ const Window = struct {
     ypos_save: c_int,
     xscale: f32,
     yscale: f32,
+    last_frame_time: f64 = 0.0,
+    delta_time: f64 = 0.0,
+    total_time: f64 = 0.0,
+    last_width: c_int = 0,
+    last_height: c_int = 0,
+    margins: struct {
+        left: f32 = 0.0,
+        right: f32 = 0.0,
+        top: f32 = 0.0,
+        bottom: f32 = 0.0,
+    },
+    paddings: struct {
+        left: f32 = 0.0,
+        right: f32 = 0.0,
+        top: f32 = 0.0,
+        bottom: f32 = 0.0,
+    },
+    tick_fn: ?*const fn (TickState) void = null,
+    tick_data: ?*anyopaque = null,
 };
 
 var main_window: Window = Window{
@@ -61,6 +90,8 @@ var main_window: Window = Window{
     .ypos_save = 0,
     .xscale = 1.0,
     .yscale = 1.0,
+    .margins = .{},
+    .paddings = .{},
 };
 
 var angle: f32 = 0.7;
@@ -157,6 +188,8 @@ pub fn main() !void {
     try init();
     defer deinit();
 
+    main_window.tick_fn = tick_fn;
+
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
         const emsc = @import("emsc");
@@ -170,12 +203,20 @@ pub fn main() !void {
     }
 }
 
-fn tick_fn() void {
+fn tick_fn(ts: TickState) void {
+    _ = ts;
     sgp.sgp_set_color(1, 1, 0, 1);
     sgp.sgp_draw_filled_rect(20, 20, 300, 300);
 }
 
 fn mainLoop() callconv(.c) void {
+    // Delta time calculation
+    const current_time = glfw.glfwGetTime();
+    const delta_time = current_time - main_window.last_frame_time;
+    main_window.last_frame_time = current_time;
+    main_window.delta_time = delta_time;
+    main_window.total_time += delta_time;
+
     // Get window and framebuffer dimensions
     var fb_width: c_int = undefined;
     var fb_height: c_int = undefined;
@@ -196,40 +237,51 @@ fn mainLoop() callconv(.c) void {
         glfw.glfwGetWindowContentScale(main_window.window, &xscale, &yscale);
     }
 
-    // Calculate scaling factors
-    const scale_x = @as(f32, @floatFromInt(fb_width)) / @as(f32, @floatFromInt(win_width));
-    const scale_y = @as(f32, @floatFromInt(fb_height)) / @as(f32, @floatFromInt(win_height));
-    main_window.xscale = scale_x;
-    main_window.yscale = scale_y;
+    // Check for window resize
+    var resized = false;
+    if (main_window.last_width != win_width or main_window.last_height != win_height) {
+        resized = true;
+        main_window.last_width = win_width;
+        main_window.last_height = win_height;
+    }
 
     // Convert dimensions to f32 for calculations
     const fb_width_f = @as(f32, @floatFromInt(fb_width));
     const fb_height_f = @as(f32, @floatFromInt(fb_height));
 
     // Setup viewport and projection
-    const ml = 0.0; // margins left
-    const mr = 0.0; // margins right
-    const mt = 0.0; // margins top
-    const mb = 0.0; // margins bottom
-    const pl = 0.0; // padding left
-    const pr = 0.0; // padding right
-    const pt = 0.0; // padding top
-    const pb = 0.0; // padding bottom
+    const ml = main_window.margins.left;
+    const mr = main_window.margins.right;
+    const mt = main_window.margins.top;
+    const mb = main_window.margins.bottom;
+    const pl = main_window.paddings.left;
+    const pr = main_window.paddings.right;
+    const pt = main_window.paddings.top;
+    const pb = main_window.paddings.bottom;
 
     sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
-
-    // Set viewport with margins and scaling
     sgp.sgp_viewport(@intFromFloat(ml * xscale), @intFromFloat(mt * yscale), @intFromFloat((fb_width_f - ml - mr) * xscale), @intFromFloat((fb_height_f - mt - mb) * yscale));
-
-    // Set projection with padding
     sgp.sgp_project(-pl, fb_width_f + pr, -pt, fb_height_f + pb);
-
-    // Reset transform and set blend mode
     sgp.sgp_reset_transform();
     sgp.sgp_set_blend_mode(@intFromEnum(main_window.blendmode));
 
     // Execute tick function
-    tick_fn();
+    if (main_window.tick_fn) |tick| {
+        const ts = TickState{
+            .udata = main_window.tick_data,
+            .delta_time = delta_time,
+            .total_time = main_window.total_time,
+            .width = fb_width + @as(c_int, @intFromFloat(-pl - pr)),
+            .height = fb_height + @as(c_int, @intFromFloat(-pt - pb)),
+            .resized = resized,
+            .fullscreen = main_window.fullscreen,
+        };
+        tick(ts);
+    } else {
+        // Default drawing if no tick function
+        sgp.sgp_set_color(1, 1, 0, 1);
+        sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+    }
 
     // Setup and execute rendering pass
     var pass: sg.sg_pass = .{
@@ -238,9 +290,6 @@ fn mainLoop() callconv(.c) void {
             .height = @intCast(fb_height),
         },
     };
-
-    pass.swapchain.width = @intCast(fb_width);
-    pass.swapchain.height = @intCast(fb_height);
     sg.sg_begin_pass(&pass);
     sgp.sgp_flush();
     sgp.sgp_end();
@@ -249,6 +298,14 @@ fn mainLoop() callconv(.c) void {
 
     // Swap buffers
     glfw.glfwSwapBuffers(main_window.window);
+
+    // // Update input state
+    // _ = inputUpdateState();
+    // _ = audioUpdateStreams();
+    // _ = fsUpdateTasks();
+
+    // Poll events
+    glfw.glfwPollEvents();
 
     // Check for window close
     if (glfw.glfwWindowShouldClose(main_window.window) != 0) {
