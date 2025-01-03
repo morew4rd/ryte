@@ -70,46 +70,75 @@ fn init() !void {
         return error.GlfwInitFailed;
     }
 
+    // Set OpenGL context hints
     glfw.glfwWindowHint(glfw.GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfw.glfwWindowHint(glfw.GLFW_CONTEXT_VERSION_MINOR, 3);
     glfw.glfwWindowHint(glfw.GLFW_OPENGL_FORWARD_COMPAT, glfw.GLFW_TRUE);
     glfw.glfwWindowHint(glfw.GLFW_OPENGL_PROFILE, glfw.GLFW_OPENGL_CORE_PROFILE);
     glfw.glfwWindowHint(glfw.GLFW_DOUBLEBUFFER, 1);
 
+    // Initialize PHYSFS
     _ = physfs.PHYSFS_init("");
 
+    // Initialize audio
     raudio.InitAudioDevice();
     if (!raudio.IsAudioDeviceReady()) {
         return error.RaudioInitFailed;
     }
 
-    if (glfw.glfwCreateWindow(W, H, initial_title, null, null)) |win| {
-        main_window.window = win;
-    } else {
-        return error.CouldntOpenWindow;
-    }
-
-    main_window.monitor = glfw.glfwGetWindowMonitor(main_window.window) orelse glfw.glfwGetPrimaryMonitor().?;
-    main_window.mode = @constCast(glfw.glfwGetVideoMode(main_window.monitor));
-
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
         const emsc = @import("emsc");
         emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
+        main_window.window = glfw.glfwCreateWindow(emsc.emsc_width(), emsc.emsc_height(), initial_title, null, null) orelse return error.CouldntOpenWindow;
+        emsc.emscripten_set_window_title(initial_title);
     } else {
-        glfw.glfwMakeContextCurrent(main_window.window);
+        // Start invisible on desktop platforms
+        glfw.glfwWindowHint(glfw.GLFW_VISIBLE, 0);
+        if (!main_window.window_resizable) {
+            glfw.glfwWindowHint(glfw.GLFW_RESIZABLE, 0);
+        }
+
+        // Create window
+        main_window.window = glfw.glfwCreateWindow(W, H, initial_title, null, null) orelse return error.CouldntOpenWindow;
+
+        // Get monitor and video mode
+        main_window.monitor = glfw.glfwGetWindowMonitor(main_window.window) orelse glfw.glfwGetPrimaryMonitor().?;
+        main_window.mode = @constCast(glfw.glfwGetVideoMode(main_window.monitor));
+
+        // Center window on screen
+
+        const xpos = @divFloor(main_window.mode.width - W, 2);
+        const ypos = @divFloor(main_window.mode.height - H, 2);
+        glfw.glfwSetWindowPos(main_window.window, xpos, ypos);
+
+        // Save initial position
+        glfw.glfwGetWindowPos(main_window.window, &main_window.xpos_save, &main_window.ypos_save);
+
+        // Show window
+        glfw.glfwShowWindow(main_window.window);
     }
 
+    // Set VSync
+    if (main_window.vsync) {
+        glfw.glfwSwapInterval(1);
+    } else {
+        glfw.glfwSwapInterval(0);
+    }
+
+    // Make context current
+    glfw.glfwMakeContextCurrent(main_window.window);
+
+    // Initialize Sokol GFX
     var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
-
     if (!sg.sg_isvalid()) {
         return error.SG_IsInvalid;
     }
 
+    // Initialize Sokol GP
     var sgpdesc: sgp.sgp_desc = .{};
     sgp.sgp_setup(&sgpdesc);
-
     if (!sg.sg_isvalid()) {
         return error.SGP_IsInvalid;
     }
@@ -126,11 +155,12 @@ fn deinit() void {
 pub fn main() !void {
     std.debug.print("ryte example.\n", .{});
     try init();
+    defer deinit();
 
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
         const emsc = @import("emsc");
-        emsc.emscripten_set_main_loop(emscriptenMainLoop, 0, true);
+        emsc.emscripten_set_main_loop(mainLoop, 0, true);
     } else {
         // Desktop-specific loop
         while (glfw.glfwWindowShouldClose(main_window.window) == 0) {
@@ -138,11 +168,9 @@ pub fn main() !void {
             glfw.glfwPollEvents();
         }
     }
-
-    deinit();
 }
 
-fn mainLoop() void {
+fn mainLoop() callconv(.c) void {
     var fb_width: c_int = undefined;
     var fb_height: c_int = undefined;
     glfw.glfwGetFramebufferSize(main_window.window, &fb_width, &fb_height);
@@ -185,8 +213,4 @@ fn mainLoop() void {
     sg.sg_commit();
 
     glfw.glfwSwapBuffers(main_window.window);
-}
-
-fn emscriptenMainLoop() callconv(.c) void {
-    mainLoop();
 }
