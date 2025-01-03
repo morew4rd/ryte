@@ -13,3 +13,6 @@ pub const em_callback_func = ?*const fn () callconv(.c) void;
 pub extern fn emscripten_set_main_loop(func: em_callback_func, fps: c_int, simulate_infinite_loop: bool) void;
 pub extern fn emscripten_get_window_title() [*c]u8;
 pub extern fn emscripten_set_window_title([*c]const u8) void;
+pub extern fn emscripten_pause_main_loop() void;
+pub extern fn emscripten_resume_main_loop() void;
+pub extern fn emscripten_cancel_main_loop() void;

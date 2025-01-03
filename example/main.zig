@@ -170,47 +170,91 @@ pub fn main() !void {
     }
 }
 
+fn tick_fn() void {
+    sgp.sgp_set_color(1, 1, 0, 1);
+    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+}
+
 fn mainLoop() callconv(.c) void {
+    // Get window and framebuffer dimensions
     var fb_width: c_int = undefined;
     var fb_height: c_int = undefined;
-    glfw.glfwGetFramebufferSize(main_window.window, &fb_width, &fb_height);
-
     var win_width: c_int = undefined;
     var win_height: c_int = undefined;
+    var xscale: f32 = 1.0;
+    var yscale: f32 = 1.0;
 
     if (builtin.target.os.tag == .emscripten) {
         const emsc = @import("emsc");
         win_width = emsc.emsc_width();
         win_height = emsc.emsc_height();
+        fb_width = win_width;
+        fb_height = win_height;
     } else {
         glfw.glfwGetWindowSize(main_window.window, &win_width, &win_height);
+        glfw.glfwGetFramebufferSize(main_window.window, &fb_width, &fb_height);
+        glfw.glfwGetWindowContentScale(main_window.window, &xscale, &yscale);
     }
 
+    // Calculate scaling factors
     const scale_x = @as(f32, @floatFromInt(fb_width)) / @as(f32, @floatFromInt(win_width));
     const scale_y = @as(f32, @floatFromInt(fb_height)) / @as(f32, @floatFromInt(win_height));
     main_window.xscale = scale_x;
     main_window.yscale = scale_y;
 
-    var pass: sg.sg_pass = .{};
-    sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
-    sgp.sgp_reset_transform();
-    // sgp.sgp_scale(scale_x, scale_y);
-    // sgp.sgp_translate(150 * scale_x, 150 * scale_y);
-    // sgp.sgp_translate(150, 150);
-    // sgp.sgp_rotate(angle);
-    // angle += 0.01;
+    // Convert dimensions to f32 for calculations
+    const fb_width_f = @as(f32, @floatFromInt(fb_width));
+    const fb_height_f = @as(f32, @floatFromInt(fb_height));
 
-    sgp.sgp_set_color(1, 1, 0, 1);
-    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+    // Setup viewport and projection
+    const ml = 0.0; // margins left
+    const mr = 0.0; // margins right
+    const mt = 0.0; // margins top
+    const mb = 0.0; // margins bottom
+    const pl = 0.0; // padding left
+    const pr = 0.0; // padding right
+    const pt = 0.0; // padding top
+    const pb = 0.0; // padding bottom
+
+    sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
+
+    // Set viewport with margins and scaling
+    sgp.sgp_viewport(@intFromFloat(ml * xscale), @intFromFloat(mt * yscale), @intFromFloat((fb_width_f - ml - mr) * xscale), @intFromFloat((fb_height_f - mt - mb) * yscale));
+
+    // Set projection with padding
+    sgp.sgp_project(-pl, fb_width_f + pr, -pt, fb_height_f + pb);
+
+    // Reset transform and set blend mode
+    sgp.sgp_reset_transform();
+    sgp.sgp_set_blend_mode(@intFromEnum(main_window.blendmode));
+
+    // Execute tick function
+    tick_fn();
+
+    // Setup and execute rendering pass
+    var pass: sg.sg_pass = .{
+        .swapchain = .{
+            .width = @intCast(fb_width),
+            .height = @intCast(fb_height),
+        },
+    };
 
     pass.swapchain.width = @intCast(fb_width);
     pass.swapchain.height = @intCast(fb_height);
-
     sg.sg_begin_pass(&pass);
     sgp.sgp_flush();
     sgp.sgp_end();
     sg.sg_end_pass();
     sg.sg_commit();
 
+    // Swap buffers
     glfw.glfwSwapBuffers(main_window.window);
+
+    // Check for window close
+    if (glfw.glfwWindowShouldClose(main_window.window) != 0) {
+        if (builtin.target.os.tag == .emscripten) {
+            const emsc = @import("emsc");
+            emsc.emscripten_cancel_main_loop();
+        }
+    }
 }
