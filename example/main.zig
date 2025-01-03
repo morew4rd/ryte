@@ -65,13 +65,10 @@ var main_window: Window = Window{
 
 var angle: f32 = 0.7;
 
-pub fn main() !void {
-    std.debug.print("ryte example.\n", .{});
-
+fn init() !void {
     if (glfw.glfwInit() == 0) {
         return error.GlfwInitFailed;
     }
-    defer glfw.glfwTerminate();
 
     glfw.glfwWindowHint(glfw.GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfw.glfwWindowHint(glfw.GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -80,13 +77,11 @@ pub fn main() !void {
     glfw.glfwWindowHint(glfw.GLFW_DOUBLEBUFFER, 1);
 
     _ = physfs.PHYSFS_init("");
-    defer _ = physfs.PHYSFS_deinit();
 
     raudio.InitAudioDevice();
     if (!raudio.IsAudioDeviceReady()) {
         return error.RaudioInitFailed;
     }
-    defer raudio.CloseAudioDevice();
 
     if (glfw.glfwCreateWindow(W, H, initial_title, null, null)) |win| {
         main_window.window = win;
@@ -107,17 +102,30 @@ pub fn main() !void {
 
     var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
-    defer sg.sg_shutdown();
+
     if (!sg.sg_isvalid()) {
         return error.SG_IsInvalid;
     }
 
     var sgpdesc: sgp.sgp_desc = .{};
     sgp.sgp_setup(&sgpdesc);
-    defer sgp.sgp_shutdown();
+
     if (!sg.sg_isvalid()) {
         return error.SGP_IsInvalid;
     }
+}
+
+fn deinit() void {
+    defer glfw.glfwTerminate();
+    defer raudio.CloseAudioDevice();
+    defer _ = physfs.PHYSFS_deinit();
+    defer sg.sg_shutdown();
+    defer sgp.sgp_shutdown();
+}
+
+pub fn main() !void {
+    std.debug.print("ryte example.\n", .{});
+    try init();
 
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
@@ -130,6 +138,8 @@ pub fn main() !void {
             glfw.glfwPollEvents();
         }
     }
+
+    deinit();
 }
 
 fn mainLoop() void {
