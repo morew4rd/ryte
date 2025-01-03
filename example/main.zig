@@ -13,6 +13,58 @@ const W = 800;
 const H = 600;
 const initial_title = "ryte -- lyte2d in zig";
 
+const BlendMode = enum(u8) {
+    none = 0,
+    blend = 1,
+    add = 2,
+    mod = 3,
+    mul = 4,
+};
+
+const FilterMode = enum(u8) {
+    _invalid = 1,
+    nearest = 2,
+    linear = 3,
+};
+
+const Window = struct {
+    window: *glfw.struct_GLFWwindow,
+    monitor: *glfw.struct_GLFWmonitor,
+    mode: *glfw.struct_GLFWvidmode,
+    title: [*:0]const u8,
+    fullscreen: bool,
+    vsync: bool,
+    window_resizable: bool,
+    blendmode: BlendMode,
+    filtermode: FilterMode,
+    width_save: c_int,
+    height_save: c_int,
+    xpos_save: c_int,
+    ypos_save: c_int,
+    xscale: f32,
+    yscale: f32,
+};
+
+var main_window: Window = Window{
+    .window = undefined,
+    .monitor = undefined,
+    .mode = undefined,
+    .title = initial_title,
+    .fullscreen = false,
+    .vsync = true,
+    .window_resizable = true,
+    .blendmode = .blend,
+    .filtermode = .linear,
+    .width_save = W,
+    .height_save = H,
+    .xpos_save = 0,
+    .ypos_save = 0,
+    .xscale = 1.0,
+    .yscale = 1.0,
+};
+
+var angle: f32 = 0.7;
+
 pub fn main() !void {
     std.debug.print("ryte example.\n", .{});
 
@@ -36,24 +88,30 @@ pub fn main() !void {
     }
     defer raudio.CloseAudioDevice();
 
-    const win = glfw.glfwCreateWindow(W, H, initial_title, null, null);
-    if (win == null) {
+    if (glfw.glfwCreateWindow(W, H, initial_title, null, null)) |win| {
+        main_window.window = win;
+    } else {
         return error.CouldntOpenWindow;
     }
+
+    main_window.monitor = glfw.glfwGetWindowMonitor(main_window.window) orelse glfw.glfwGetPrimaryMonitor().?;
+    main_window.mode = @constCast(glfw.glfwGetVideoMode(main_window.monitor));
+
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
-        // Emscripten-specific loop
         const emsc = @import("emsc");
         emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
     } else {
-        glfw.glfwMakeContextCurrent(win);
+        glfw.glfwMakeContextCurrent(main_window.window);
     }
+
     var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
     defer sg.sg_shutdown();
     if (!sg.sg_isvalid()) {
         return error.SG_IsInvalid;
     }
+
     var sgpdesc: sgp.sgp_desc = .{};
     sgp.sgp_setup(&sgpdesc);
     defer sgp.sgp_shutdown();
@@ -63,41 +121,37 @@ pub fn main() !void {
 
     // Conditional compilation for different platforms
     if (builtin.target.os.tag == .emscripten) {
-        // Emscripten-specific loop
         const emsc = @import("emsc");
-        // emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
         emsc.emscripten_set_main_loop(emscriptenMainLoop, 0, true);
     } else {
         // Desktop-specific loop
-        while (glfw.glfwWindowShouldClose(win) == 0) {
-            mainLoop(win);
+        while (glfw.glfwWindowShouldClose(main_window.window) == 0) {
+            mainLoop();
             glfw.glfwPollEvents();
         }
     }
 }
 
-var angle: f32 = 0.7;
-
-fn mainLoop(win: ?*glfw.GLFWwindow) void {
+fn mainLoop() void {
     var fb_width: c_int = undefined;
     var fb_height: c_int = undefined;
-    glfw.glfwGetFramebufferSize(win, &fb_width, &fb_height);
+    glfw.glfwGetFramebufferSize(main_window.window, &fb_width, &fb_height);
 
     var win_width: c_int = undefined;
     var win_height: c_int = undefined;
-    // Conditional compilation for different platforms
+
     if (builtin.target.os.tag == .emscripten) {
-        // Emscripten-specific loop
         const emsc = @import("emsc");
         win_width = emsc.emsc_width();
         win_height = emsc.emsc_height();
     } else {
-        glfw.glfwGetWindowSize(win, &win_width, &win_height);
+        glfw.glfwGetWindowSize(main_window.window, &win_width, &win_height);
     }
+
     const scale_x = @as(f32, @floatFromInt(fb_width)) / @as(f32, @floatFromInt(win_width));
     const scale_y = @as(f32, @floatFromInt(fb_height)) / @as(f32, @floatFromInt(win_height));
-    _ = scale_x;
-    _ = scale_y;
+    main_window.xscale = scale_x;
+    main_window.yscale = scale_y;
 
     var pass: sg.sg_pass = .{};
     sgp.sgp_begin(@intCast(fb_width), @intCast(fb_height));
@@ -120,10 +174,9 @@ fn mainLoop(win: ?*glfw.GLFWwindow) void {
     sg.sg_end_pass();
     sg.sg_commit();
 
-    glfw.glfwSwapBuffers(win);
+    glfw.glfwSwapBuffers(main_window.window);
 }
 
 fn emscriptenMainLoop() callconv(.c) void {
-    const win = glfw.glfwGetCurrentContext();
-    mainLoop(win);
+    mainLoop();
 }
