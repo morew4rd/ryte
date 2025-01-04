@@ -32,6 +32,7 @@ const sokol_gfx_ext_bindings = bindings_prefix ++ "sokol_gfx_ext_bindings.zig";
 const emsc_shims_bindings = bindings_prefix ++ "emsc_shims_bindings.zig";
 const stb_image_bindings = bindings_prefix ++ "stb_image_bindings.zig";
 const stb_image_write_bindings = bindings_prefix ++ "stb_image_write_bindings.zig";
+const fontstash_bindings = bindings_prefix ++ "fontstash_bindings.zig";
 // const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
 
 const example_root_source = "./example/main.zig";
@@ -66,6 +67,7 @@ const RyteModules = struct {
     emsc_shims_mod: *Module,
     stb_image_mod: *Module,
     stb_image_write_mod: *Module,
+    fontstash_mod: *Module,
     // freetype_mod: *Module,
 };
 
@@ -111,6 +113,7 @@ fn getModules(b: *std.Build) RyteModules {
         .emsc_shims_mod = b.addModule("emsc", .{ .root_source_file = b.path(emsc_shims_bindings) }),
         .stb_image_mod = b.addModule("stb_image", .{ .root_source_file = b.path(stb_image_bindings) }),
         .stb_image_write_mod = b.addModule("stb_image_write", .{ .root_source_file = b.path(stb_image_write_bindings) }),
+        .fontstash_mod = b.addModule("fontstash", .{ .root_source_file = b.path(fontstash_bindings) }),
         // .freetype_mod = b.addModule("freetype", .{ .root_source_file = b.path(freetype_bindings) }),
     };
 }
@@ -586,6 +589,7 @@ fn buildExample(
     app.root_module.addImport("emsc", mods.emsc_shims_mod);
     app.root_module.addImport("stb_image", mods.stb_image_mod);
     app.root_module.addImport("stb_image_write", mods.stb_image_write_mod);
+    app.root_module.addImport("fontstash", mods.fontstash_mod);
 
     // Link libraries
     app.linkLibC();
