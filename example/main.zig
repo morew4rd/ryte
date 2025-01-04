@@ -9,7 +9,7 @@ const window = @import("window.zig");
 const input = @import("input.zig");
 const canvas = @import("canvas.zig");
 
-var angle: f32 = 0.0;
+var angle: f32 = 0.3;
 
 var cvs: *canvas.KyteImage = undefined;
 
