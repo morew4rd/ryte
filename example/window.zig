@@ -253,7 +253,7 @@ fn mainLoop() callconv(.c) void {
         tick(ts);
     } else {
         // Default drawing if no tick function
-        sgp.sgp_set_color(1, 1, 0, 1);
+        sgp.sgp_set_color(0, 0, 1, 1);
         sgp.sgp_draw_filled_rect(20, 20, 300, 300);
     }
 

@@ -623,6 +623,7 @@ fn buildExample(
         "-sTOTAL_STACK=64MB",
         "-sINITIAL_MEMORY=256MB",
         "-sALLOW_MEMORY_GROWTH=1",
+        "-sUSE_OFFSET_CONVERTER=1",
         "-sUSE_GLFW=3",
         "-sUSE_WEBGL2=1",
         "-sFULL_ES3=1",
