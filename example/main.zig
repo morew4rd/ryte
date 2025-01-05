@@ -9,6 +9,7 @@ const window = @import("window.zig");
 const input = @import("input.zig");
 const canvas = @import("canvas.zig");
 const font = @import("font.zig");
+const fs = @import("fs.zig");
 
 var angle: f32 = 0.3;
 
@@ -32,8 +33,11 @@ pub fn main() !void {
     try window.init();
     defer window.deinit();
 
-    // Initialize PHYSFS
-    _ = physfs.PHYSFS_init("");
+    // Initialize fs
+    try fs.init();
+    defer fs.deinit();
+    try fs.mountAddReadablePath(".", "/");
+    try fs.mountSetWritablePath(".");
 
     // Initialize audio
     raudio.InitAudioDevice();
@@ -45,9 +49,12 @@ pub fn main() !void {
 
     cvs = try canvas.newCanvas(200, 200);
     font1 = try font.loadFontFromFile(std.heap.c_allocator, "assets/m5x7.ttf", 14); // TODO: store font on the object
-    font2 = try font.loadFontFromFile(std.heap.c_allocator, "assets/DroidSansMono.ttf", 32); // TODO: store font on the object
-    defer font.destroyFont(std.heap.c_allocator, font1); // crash
-    defer font.destroyFont(std.heap.c_allocator, font2); // crash
+    // font2 = try font.loadFontFromFile(std.heap.c_allocator, "assets/DroidSansMono.ttf", 32); // TODO: store font on the object
+    const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
+    font2 = try font.loadFontFromMemory(fs.allocator, blob_font2.buffer, blob_font2.name, 32);
+    defer font.destroyFont(std.heap.c_allocator, font1);
+    defer font.destroyFont(fs.allocator, font2);
+
     font.setCurrentFont(font1);
 
     // TODO where does this go?
@@ -67,6 +74,7 @@ pub fn main() !void {
 
 fn tickFn(ts: window.TickState) void {
     _ = ts;
+    fs.updateFetchTasks();
 
     if (input.mouseDown(input.MouseButton.mb1)) {
         angle += 0.1;

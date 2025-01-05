@@ -7,6 +7,8 @@
         .emsdk = .{
             .url = "git+https://github.com/emscripten-core/emsdk#3.1.73",
             .hash = "1220d2b37748757d43de92f0ef723b6a00c3cae4b6a9c582b607421704498a5cfd2b",
+            // .url = "git+https://github.com/emscripten-core/emsdk#3.1.74",
+            // .hash = "12205e00d6c43f669790291f43a17109de370831c68a40b11cc4c57df5d40e71f591",
         },
     },
 

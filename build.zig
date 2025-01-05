@@ -25,6 +25,7 @@ const header_impl_src = deps_prefix ++ "/header_impls.c";
 const bindings_prefix = "./bindings/";
 const glfw_bindings = bindings_prefix ++ "glfw3_bindings.zig";
 const physfs_bindings = bindings_prefix ++ "physfs_bindings.zig";
+const sokol_fetch_bindings = bindings_prefix ++ "sokol_fetch_bindings.zig";
 const raudio_bindings = bindings_prefix ++ "raudio_bindings.zig";
 const sokol_gfx_bindings = bindings_prefix ++ "sokol_gfx_bindings.zig";
 const sokol_gp_bindings = bindings_prefix ++ "sokol_gp_bindings.zig";
@@ -60,6 +61,7 @@ const RyteDependencies = struct {
 const RyteModules = struct {
     glfw_mod: *Module,
     physfs_mod: *Module,
+    sokol_fetch_mod: *Module,
     raudio_mod: *Module,
     sokol_gfx_mod: *Module,
     sokol_gp_mod: *Module,
@@ -106,6 +108,7 @@ fn getModules(b: *std.Build) RyteModules {
     return RyteModules{
         .glfw_mod = b.addModule("glfw", .{ .root_source_file = b.path(glfw_bindings) }),
         .physfs_mod = b.addModule("physfs", .{ .root_source_file = b.path(physfs_bindings) }),
+        .sokol_fetch_mod = b.addModule("sokol_fetch", .{ .root_source_file = b.path(sokol_fetch_bindings) }),
         .raudio_mod = b.addModule("raudio", .{ .root_source_file = b.path(raudio_bindings) }),
         .sokol_gfx_mod = b.addModule("sokol_gfx", .{ .root_source_file = b.path(sokol_gfx_bindings) }),
         .sokol_gp_mod = b.addModule("sokol_gp", .{ .root_source_file = b.path(sokol_gp_bindings) }),
@@ -582,6 +585,7 @@ fn buildExample(
     // Add imports
     app.root_module.addImport("glfw", mods.glfw_mod);
     app.root_module.addImport("physfs", mods.physfs_mod);
+    app.root_module.addImport("sokol_fetch", mods.sokol_fetch_mod);
     app.root_module.addImport("raudio", mods.raudio_mod);
     app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
     app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
