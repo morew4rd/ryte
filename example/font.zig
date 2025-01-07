@@ -8,9 +8,9 @@ const window = @import("window.zig");
 const K_FONT_ATLAS_SIZE = 1024;
 
 pub const KyteFont = struct {
-    fonsctx: *fnts.FONScontext, // align(16),
-    fontdata: []u8, // align(16),
-    buffer: []u8, // align(16),
+    fonsctx: *fnts.FONScontext,
+    fontdata: []u8,
+    buffer: []u8,
     _image_handle: sg.sg_image,
     _sampler_handle: sg.sg_sampler,
     width: c_int,
@@ -35,9 +35,13 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
     const font = try allocator.create(KyteFont);
     errdefer allocator.destroy(font);
 
+    // Make a copy of the font data
+    const fontdata_copy = try allocator.alloc(u8, fontdata.len);
+    @memcpy(fontdata_copy, fontdata);
+
     font.* = .{
         .fonsctx = undefined,
-        .fontdata = fontdata,
+        .fontdata = fontdata_copy, // Use the copy
         .buffer = undefined,
         ._image_handle = undefined,
         ._sampler_handle = undefined,
@@ -71,9 +75,13 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
     return font;
 }
 
-pub fn destroyFont(allocator: std.mem.Allocator, font: *KyteFont) void {
+pub fn destroyFont(font: *KyteFont) void {
+    const allocator = font.allocator;
     fnts.fonsDeleteInternal(font.fonsctx);
-    allocator.free(font.fontdata);
+    allocator.free(font.fontdata); // Free our copy
+    // if (font.buffer.len > 0) {
+    //     allocator.free(font.buffer);  this done in fonstash callback
+    // }
     allocator.destroy(font);
 }
 
@@ -90,6 +98,9 @@ fn fonsRenderCreate(user_ptr: ?*anyopaque, width: c_int, height: c_int) callconv
     const kfont: *KyteFont = @ptrCast(@alignCast(user_ptr));
     kfont.width = width;
     kfont.height = height;
+
+    // Check for valid dimensions
+    if (width <= 0 or height <= 0) return 0;
 
     const imdesc = sg.sg_image_desc{
         .width = width,
@@ -109,9 +120,13 @@ fn fonsRenderCreate(user_ptr: ?*anyopaque, width: c_int, height: c_int) callconv
     kfont._image_handle = img;
     kfont._sampler_handle = smp;
 
-    // Use the same allocator that was used to create the font
-    kfont.buffer = kfont.allocator.alloc(u8, @intCast(width * height * 4)) catch &[_]u8{};
-    @memset(kfont.buffer, 0); // Initialize with zeros
+    // Allocate buffer with proper error handling
+    kfont.buffer = kfont.allocator.alloc(u8, @intCast(width * height * 4)) catch {
+        sg.sg_destroy_image(img);
+        sg.sg_destroy_sampler(smp);
+        return 0;
+    };
+    @memset(kfont.buffer, 0);
 
     return 1;
 }

@@ -13,16 +13,20 @@ pub const KyteImage = struct {
     is_canvas: bool = false,
     _depth_image: sg.sg_image = undefined,
     _attch: sg.sg_attachments = undefined,
+    allocator: std.mem.Allocator,
 };
 
-pub fn newCanvas(w: i32, h: i32) !*KyteImage {
-    const c = try std.heap.c_allocator.create(KyteImage);
+pub fn newCanvas(allocator: std.mem.Allocator, w: i32, h: i32) !*KyteImage {
+    const c = try allocator.create(KyteImage);
+    errdefer allocator.destroy(c);
+
     c.* = KyteImage{
         .width = w,
         .height = h,
         .is_canvas = true,
         ._image_handle = undefined,
         ._sampler_handle = undefined,
+        .allocator = allocator,
     };
 
     // Create frame buffer image
@@ -84,7 +88,6 @@ pub fn setCanvas(cvs: ?*KyteImage) !void {
         sgp.sgp_scale(1.0, -1.0);
         sgp.sgp_translate(0, @floatFromInt(-c.height));
 
-        // TODO: take this from main_window blend mode
         sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);
 
         const canvas_pass = sg.sg_pass{
@@ -94,7 +97,6 @@ pub fn setCanvas(cvs: ?*KyteImage) !void {
                     .{
                         .load_action = sg.SG_LOADACTION_CLEAR,
                         .clear_value = .{ .r = 1.0, .g = 1.0, .b = 1.0, .a = 1.0 },
-                        // .clear_value = .{ .r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0 },
                     },
                     .{},
                     .{},

@@ -11,15 +11,21 @@ const canvas = @import("canvas.zig");
 const font = @import("font.zig");
 const fs = @import("fs.zig");
 
+// Global allocator
+// var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+// pub const allocator = gpa.allocator();
+pub const allocator = std.heap.c_allocator;
+
 var angle: f32 = 0.3;
 
 var cvs: *canvas.KyteImage = undefined;
 var font1: *font.KyteFont = undefined;
 var font2: *font.KyteFont = undefined;
 
+var files_blob: *fs.KyteBlob = undefined;
+
 fn print_path() !void {
     if (builtin.os.tag != .emscripten) {
-        // print current working directory.
         var cwd_buf: [std.fs.max_path_bytes]u8 = undefined;
         const cwd = try std.fs.cwd().realpath(".", &cwd_buf);
         std.debug.print("CWD: {s}\n", .{cwd});
@@ -27,17 +33,26 @@ fn print_path() !void {
 }
 
 pub fn main() !void {
-    std.debug.print("ryte example.\n", .{});
+    std.debug.print("hello: ryte example.\n", .{});
 
     // Initialize window and graphics
     try window.init();
     defer window.deinit();
 
     // Initialize fs
-    try fs.init();
+    try fs.init(allocator);
     defer fs.deinit();
     try fs.mountAddReadablePath(".", "/");
     try fs.mountSetWritablePath(".");
+
+    // Fetch the file
+    files_blob = try fs.fetchFileAsync("assets/files.zip", "files", 1_000_000);
+    defer {
+        // Only remove if the blob is still valid
+        if (files_blob.status != .K_BLOB_FAILED and files_blob.buffer.len > 0) {
+            fs.removeBlob(files_blob);
+        }
+    }
 
     // Initialize audio
     raudio.InitAudioDevice();
@@ -47,17 +62,20 @@ pub fn main() !void {
 
     try input.initInputCallbacks(window.main_window.window);
 
-    cvs = try canvas.newCanvas(200, 200);
-    font1 = try font.loadFontFromFile(std.heap.c_allocator, "assets/m5x7.ttf", 14); // TODO: store font on the object
-    // font2 = try font.loadFontFromFile(std.heap.c_allocator, "assets/DroidSansMono.ttf", 32); // TODO: store font on the object
+    cvs = try canvas.newCanvas(allocator, 200, 200);
+    defer allocator.destroy(cvs);
+
+    font1 = try font.loadFontFromFile(allocator, "assets/m5x7.ttf", 14);
+    defer font.destroyFont(font1);
+
     const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
-    font2 = try font.loadFontFromMemory(fs.allocator, blob_font2.buffer, blob_font2.name, 32);
-    defer font.destroyFont(std.heap.c_allocator, font1);
-    defer font.destroyFont(fs.allocator, font2);
+    defer fs.removeBlob(blob_font2);
+
+    font2 = try font.loadFontFromMemory(allocator, blob_font2.buffer, blob_font2.name, 32);
+    defer font.destroyFont(font2);
 
     font.setCurrentFont(font1);
 
-    // TODO where does this go?
     sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);
 
     try canvas.setCanvas(cvs);
@@ -70,32 +88,36 @@ pub fn main() !void {
     // Set tick function and start main loop
     window.setTickFn(tickFn, null);
     window.startMainLoop();
+
+    std.debug.print("hello: ryte example.\n", .{});
+}
+
+fn checkFetches() void {
+    fs.updateFetchTasks();
 }
 
 fn tickFn(ts: window.TickState) void {
     _ = ts;
-    fs.updateFetchTasks();
+    checkFetches();
+    if (files_blob.status == .K_BLOB_READY) {
+        if (input.mouseDown(input.MouseButton.mb1)) {
+            angle += 0.1;
+        }
+        sgp.sgp_set_color(0, 0, 0, 1);
+        sgp.sgp_clear();
 
-    if (input.mouseDown(input.MouseButton.mb1)) {
-        angle += 0.1;
+        sgp.sgp_rotate(angle);
+
+        sgp.sgp_set_color(1, 1, 0, 0.5);
+        sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+
+        sgp.sgp_reset_transform();
+        sgp.sgp_reset_color();
+        sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
+        sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
+
+        sgp.sgp_set_color(1, 1, 1, 1);
+        font.setCurrentFont(font2);
+        font.drawText("lyte2d in zig", 10, 50) catch {};
     }
-    sgp.sgp_set_color(0, 0, 0, 1);
-    sgp.sgp_clear();
-
-    sgp.sgp_rotate(angle);
-
-    sgp.sgp_set_color(1, 1, 0, 0.5);
-    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
-
-    sgp.sgp_reset_transform();
-    sgp.sgp_reset_color();
-    sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
-    sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
-
-    // sgp.sgp_scale(2, 2);
-    sgp.sgp_set_color(1, 1, 1, 1);
-    // font.setCurrentFont(font1);
-    // font.drawText("lyte2d in zig", 10, 10) catch {};
-    font.setCurrentFont(font2);
-    font.drawText("lyte2d in zig", 10, 50) catch {};
 }

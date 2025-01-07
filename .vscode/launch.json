@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Zig Program",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/zig-out/bin/ryte_example",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            // "preLaunchTask": "zig build",
+            "postDebugTask": "",
+            "sourceMap": {
+                "/": "${workspaceFolder}"
+            },
+            "env": {},
+        }
+    ]
+}

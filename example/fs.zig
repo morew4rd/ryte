@@ -2,20 +2,21 @@ const std = @import("std");
 const sfetch = @import("sokol_fetch");
 const physfs = @import("physfs");
 
-const KyteBlob = struct {
+pub const KyteBlob = struct {
     status: KyteFetchStatus,
     name: []const u8,
     buffer: []u8,
     size: usize,
+    is_valid: bool = true, // Add this flag
 };
 
-const KyteFetchStatus = enum {
+pub const KyteFetchStatus = enum {
     K_BLOB_READY,
     K_BLOB_IN_PROGRESS,
     K_BLOB_FAILED,
 };
 
-const FSError = error{
+pub const FSError = error{
     FSInitFailed,
     WriteDirFailed,
     ReadDirFailed,
@@ -25,22 +26,17 @@ const FSError = error{
     NotADirectory,
     OutOfMemory,
     InvalidPath,
-    // Add more specific errors as needed
 };
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-// TODO: centralize allocators
-pub const allocator = gpa.allocator();
+var allocator: std.mem.Allocator = undefined;
 
 var dropped_files: std.ArrayList(*KyteBlob) = undefined;
 var fetches: std.AutoHashMap(sfetch.sfetch_handle_t, *KyteBlob) = undefined;
 
-pub fn init() !void {
+pub fn init(allocator_: std.mem.Allocator) !void {
+    allocator = allocator_;
     const success = physfs.PHYSFS_init("");
     if (success == 0) {
-        const errcode = physfs.PHYSFS_getLastErrorCode();
-        std.log.warn("Failed to init PHYSFS: {} {}\n", .{ success, errcode });
         return error.FSInitFailed;
     }
 
@@ -59,7 +55,6 @@ pub fn deinit() void {
     sfetch.sfetch_shutdown();
     _ = physfs.PHYSFS_deinit();
 
-    // Clean up all blobs
     for (dropped_files.items) |blob| {
         removeBlob(blob);
     }
@@ -117,26 +112,27 @@ pub fn mountAddReadablePathZip(localzippath: []const u8, mountpath: []const u8) 
 
 // File Operations
 pub fn loadFile(fullpath: []const u8) !*KyteBlob {
-    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse {
-        const errcode = physfs.PHYSFS_getLastErrorCode();
-        std.log.warn("Failed to open file: {s}: {}\n", .{ fullpath, errcode });
-        return error.FSCantOpenFile;
-    };
+    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return error.FSCantOpenFile;
+    defer _ = physfs.PHYSFS_close(file);
 
     const len: usize = @intCast(physfs.PHYSFS_fileLength(file));
     const buf = try allocator.alloc(u8, len);
+    errdefer allocator.free(buf);
+
     const read_len: usize = @intCast(physfs.PHYSFS_readBytes(file, buf.ptr, len));
     if (len != read_len) {
-        std.log.warn("File not fully read: {s}. File size is {} bytes, but read {} bytes.\n", .{ fullpath, len, read_len });
         return error.FSCantReadFully;
     }
 
-    _ = physfs.PHYSFS_close(file);
+    const name = try allocator.dupe(u8, fullpath);
+    errdefer allocator.free(name);
 
     const blob = try allocator.create(KyteBlob);
+    errdefer allocator.destroy(blob);
+
     blob.* = KyteBlob{
         .status = .K_BLOB_READY,
-        .name = try allocator.dupe(u8, fullpath),
+        .name = name,
         .buffer = buf,
         .size = read_len,
     };
@@ -232,23 +228,30 @@ pub fn addDroppedFile(name: []const u8, data: []const u8) !void {
 }
 
 // Fetch Operations
-fn fetch_file_callback(response: *const sfetch.sfetch_response_t) void {
+fn fetch_file_callback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c) void {
+    const response: *const sfetch.sfetch_response_t = @ptrCast(response_);
     if (response.finished) {
         if (fetches.get(response.handle)) |blob| {
             if (response.failed) {
                 blob.status = .K_BLOB_FAILED;
                 std.log.err("Fetch failed for: {s}\n", .{blob.name});
+                // Remove from fetches map
+                _ = fetches.remove(response.handle);
             } else {
-                // Resize buffer if needed
                 if (response.data.size != blob.size) {
-                    blob.buffer = allocator.resize(blob.buffer, response.data.size) catch {
+                    if (allocator.resize(blob.buffer, response.data.size)) {
+                        blob.size = response.data.size;
+                    } else {
                         blob.status = .K_BLOB_FAILED;
+                        // Remove from fetches map
+                        _ = fetches.remove(response.handle);
                         return;
-                    };
-                    blob.size = response.data.size;
+                    }
                 }
                 blob.status = .K_BLOB_READY;
                 std.log.info("Fetch succeeded for: {s}\n", .{blob.name});
+                // Remove from fetches map
+                _ = fetches.remove(response.handle);
             }
         }
     }
@@ -326,8 +329,19 @@ pub fn createBlobEmpty(size: usize, name: []const u8) !*KyteBlob {
 }
 
 pub fn removeBlob(blob: *KyteBlob) void {
-    allocator.free(blob.name);
-    allocator.free(blob.buffer);
+    // Check if already freed
+    if (!blob.is_valid) return;
+
+    if (blob.buffer.len > 0) {
+        allocator.free(blob.buffer);
+        blob.buffer = &.{};
+    }
+    if (blob.name.len > 0) {
+        allocator.free(blob.name);
+        blob.name = &.{};
+    }
+
+    blob.is_valid = false; // Mark as invalid
     allocator.destroy(blob);
 }
 
