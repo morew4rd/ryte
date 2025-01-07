@@ -393,6 +393,7 @@ fn buildFreetype(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     if (opt.is_wasm) {
         const emsdk = b.dependency("emsdk", .{});
         freetype.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
+        freetype.root_module.addCMacro("EMSCRIPTEN", "1");
     }
 
     b.installArtifact(freetype);

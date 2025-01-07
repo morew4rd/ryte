@@ -163,13 +163,6 @@
    */
 
 
-// MG: disable setjmp/longjmp for emscripten builds
-//     zig build + emscripten linking doesn't work with these
-//     we're using this via fontstash so errors are caught earlier (hopefully)
-//     and also, windows/linux/macos builds will still have setjmp/longjmp
-
-#ifndef EMSCRIPTEN
-
 #include <setjmp.h>
 
 #define ft_jmp_buf     jmp_buf  /* note: this cannot be a typedef since  */
@@ -179,13 +172,6 @@
 #define ft_longjmp     longjmp
 #define ft_setjmp( b ) setjmp( *(ft_jmp_buf*) &(b) ) /* same thing here */
 
-#else
-
-#define ft_jmp_buf int
-#define ft_setjmp(b) (0)
-#define ft_longjmp(b, val) do { (void)(b); (void)(val); } while (0)
-
-#endif //EMSCRIPTEN
 
   /* The following is only used for debugging purposes, i.e., if   */
   /* `FT_DEBUG_LEVEL_ERROR` or `FT_DEBUG_LEVEL_TRACE` are defined. */
