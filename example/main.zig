@@ -20,8 +20,8 @@ pub const allocator = std.heap.c_allocator;
 var angle: f32 = 0.3;
 
 var cvs: image.KyteImage = undefined;
-var font1: *font.KyteFont = undefined;
-var font2: *font.KyteFont = undefined;
+var font1: *font.Font = undefined;
+var font2: *font.Font = undefined;
 
 var files_blob: *fs.KyteBlob = undefined;
 

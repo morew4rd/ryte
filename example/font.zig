@@ -5,9 +5,9 @@ const fnts = @import("fontstash");
 
 const window = @import("window.zig");
 
-const K_FONT_ATLAS_SIZE = 1024;
+const atlas_size = 1024;
 
-pub const KyteFont = struct {
+pub const Font = struct {
     fonsctx: *fnts.FONScontext,
     fontdata: []u8,
     buffer: []u8,
@@ -21,7 +21,7 @@ pub const KyteFont = struct {
     allocator: std.mem.Allocator,
 };
 
-pub fn loadFontFromFile(allocator: std.mem.Allocator, fullpath: []const u8, initheight: f32) !*KyteFont {
+pub fn loadFontFromFile(allocator: std.mem.Allocator, fullpath: []const u8, initheight: f32) !*Font {
     const file = try std.fs.cwd().openFile(fullpath, .{});
     defer file.close();
 
@@ -31,8 +31,8 @@ pub fn loadFontFromFile(allocator: std.mem.Allocator, fullpath: []const u8, init
     return try loadFontFromMemory(allocator, fontdata, fullpath, initheight);
 }
 
-pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []const u8, initheight: f32) !*KyteFont {
-    const font = try allocator.create(KyteFont);
+pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []const u8, initheight: f32) !*Font {
+    const font = try allocator.create(Font);
     errdefer allocator.destroy(font);
 
     // Make a copy of the font data
@@ -48,7 +48,7 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
         .width = 0,
         .height = 0,
         .font = 0,
-        .atlas_dim = K_FONT_ATLAS_SIZE,
+        .atlas_dim = atlas_size,
         .fontsize = initheight,
         .allocator = allocator,
     };
@@ -75,7 +75,7 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
     return font;
 }
 
-pub fn destroyFont(font: *KyteFont) void {
+pub fn destroyFont(font: *Font) void {
     const allocator = font.allocator;
     fnts.fonsDeleteInternal(font.fonsctx);
     allocator.free(font.fontdata); // Free our copy
@@ -85,17 +85,17 @@ pub fn destroyFont(font: *KyteFont) void {
     allocator.destroy(font);
 }
 
-pub fn setFontHeight(font: *KyteFont, newheight: f32) void {
+pub fn setFontHeight(font: *Font, newheight: f32) void {
     font.fontsize = newheight;
 }
 
-pub fn getFontHeight(font: *KyteFont) f32 {
+pub fn getFontHeight(font: *Font) f32 {
     return font.fontsize;
 }
 
 // fontstash callbacks
 fn fonsRenderCreate(user_ptr: ?*anyopaque, width: c_int, height: c_int) callconv(.c) c_int {
-    const kfont: *KyteFont = @ptrCast(@alignCast(user_ptr));
+    const kfont: *Font = @ptrCast(@alignCast(user_ptr));
     kfont.width = width;
     kfont.height = height;
 
@@ -132,7 +132,7 @@ fn fonsRenderCreate(user_ptr: ?*anyopaque, width: c_int, height: c_int) callconv
 }
 
 fn fonsRenderDelete(user_ptr: ?*anyopaque) callconv(.c) void {
-    const kfont: *KyteFont = @ptrCast(@alignCast(user_ptr));
+    const kfont: *Font = @ptrCast(@alignCast(user_ptr));
     sg.sg_destroy_image(kfont._image_handle);
     sg.sg_destroy_sampler(kfont._sampler_handle);
 
@@ -148,7 +148,7 @@ fn fonsRenderResize(user_ptr: ?*anyopaque, width: c_int, height: c_int) callconv
 }
 
 fn fonsRenderUpdate(user_ptr: ?*anyopaque, rect: [*c]c_int, data: [*c]const u8) callconv(.c) void {
-    const kfont: *KyteFont = @ptrCast(@alignCast(user_ptr));
+    const kfont: *Font = @ptrCast(@alignCast(user_ptr));
     const width = kfont.width;
     // const height = kfont.height;
 
@@ -189,7 +189,7 @@ fn fonsRenderUpdate(user_ptr: ?*anyopaque, rect: [*c]c_int, data: [*c]const u8) 
 
 fn fonsRenderDraw(user_ptr: ?*anyopaque, verts: [*c]const f32, tcoords: [*c]const f32, colors: [*c]const u32, nverts: c_int) callconv(.c) void {
     _ = colors;
-    const kfont: *KyteFont = @ptrCast(@alignCast(user_ptr));
+    const kfont: *Font = @ptrCast(@alignCast(user_ptr));
     const width: f32 = @floatFromInt(kfont.width);
     const height: f32 = @floatFromInt(kfont.height);
 
@@ -233,18 +233,18 @@ fn fonsRenderDraw(user_ptr: ?*anyopaque, verts: [*c]const f32, tcoords: [*c]cons
     sgp.sgp_reset_image(0);
 }
 
-pub const FontContext = struct {
-    current_font: ?*KyteFont = null,
+const FontContext = struct {
+    current_font: ?*Font = null,
     // Add other necessary state here
 };
 
 var ctx: FontContext = .{};
 
-pub fn setCurrentFont(font: *KyteFont) void {
+pub fn setCurrentFont(font: *Font) void {
     ctx.current_font = font;
 }
 
-pub fn getCurrentFont() ?*KyteFont {
+pub fn getCurrentFont() ?*Font {
     return ctx.current_font;
 }
 
@@ -289,7 +289,7 @@ pub fn getTextSize(text: []const u8) !struct { width: f32, height: f32 } {
     };
 }
 
-pub fn drawTextWithSize(text: []const u8, x: f32, y: f32) !struct { width: f32, height: f32 } {
+pub fn drawTextGetSize(text: []const u8, x: f32, y: f32) !struct { width: f32, height: f32 } {
     const current_font = ctx.current_font orelse return error.NoFontSet;
 
     if (current_font.font == fnts.FONS_INVALID) {
