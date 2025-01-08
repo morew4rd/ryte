@@ -23,7 +23,7 @@ var cvs: image.Image = undefined;
 var font1: *font.Font = undefined;
 var font2: *font.Font = undefined;
 
-var files_blob: *fs.KyteBlob = undefined;
+var files_blob: *fs.Blob = undefined;
 
 var img: image.Image = undefined;
 

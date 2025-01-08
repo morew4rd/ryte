@@ -17,7 +17,7 @@ pub const Image = struct {
     _attch: sg.sg_attachments = undefined,
 };
 
-const KyteBlob = @import("fs.zig").KyteBlob;
+const KyteBlob = @import("fs.zig").Blob;
 
 pub const ImageError = error{
     CannotMakeImage,

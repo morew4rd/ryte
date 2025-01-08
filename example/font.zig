@@ -65,11 +65,11 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
         .renderDraw = fonsRenderDraw,
     };
 
-    font.fonsctx = fnts.fonsCreateInternal(@ptrCast(&params)) orelse return error.FontCreationFailed;
+    font.fonsctx = fnts.fonsCreateInternal(@ptrCast(&params)) orelse return error.font_creation_failed;
     font.font = fnts.fonsAddFontMem(font.fonsctx, name.ptr, fontdata.ptr, @intCast(fontdata.len), 0);
 
     if (font.font == fnts.FONS_INVALID) {
-        return error.FontLoadFailed;
+        return error.font_load_failed;
     }
 
     return font;
@@ -249,10 +249,10 @@ pub fn getCurrentFont() ?*Font {
 }
 
 pub fn drawText(text: []const u8, x: f32, y: f32) !void {
-    const current_font = ctx.current_font orelse return error.NoFontSet;
+    const current_font = ctx.current_font orelse return error.no_font_set;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.InvalidFont;
+        return error.invalid_font;
     }
 
     const ctx_fons = current_font.fonsctx;
@@ -272,10 +272,10 @@ pub fn drawText(text: []const u8, x: f32, y: f32) !void {
 }
 
 pub fn getTextSize(text: []const u8) !struct { width: f32, height: f32 } {
-    const current_font = ctx.current_font orelse return error.NoFontSet;
+    const current_font = ctx.current_font orelse return error.no_font_set;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.InvalidFont;
+        return error.invalid_font;
     }
 
     const ctx_fons = current_font.fonsctx;
@@ -290,10 +290,10 @@ pub fn getTextSize(text: []const u8) !struct { width: f32, height: f32 } {
 }
 
 pub fn drawTextGetSize(text: []const u8, x: f32, y: f32) !struct { width: f32, height: f32 } {
-    const current_font = ctx.current_font orelse return error.NoFontSet;
+    const current_font = ctx.current_font orelse return error.no_font_set;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.InvalidFont;
+        return error.invalid_font;
     }
 
     const ctx_fons = current_font.fonsctx;

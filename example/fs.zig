@@ -2,36 +2,36 @@ const std = @import("std");
 const sfetch = @import("sokol_fetch");
 const physfs = @import("physfs");
 
-pub const KyteBlob = struct {
-    status: KyteFetchStatus,
+pub const Blob = struct {
+    status: FetchStatus,
     name: []const u8,
     buffer: []u8,
     size: usize,
     is_valid: bool = true, // Add this flag
 };
 
-pub const KyteFetchStatus = enum {
-    K_BLOB_READY,
-    K_BLOB_IN_PROGRESS,
-    K_BLOB_FAILED,
+pub const FetchStatus = enum {
+    ready,
+    in_progress,
+    failed,
 };
 
-pub const FSError = error{
-    FSInitFailed,
-    WriteDirFailed,
-    ReadDirFailed,
-    ReadBlobFailed,
-    FSCantOpenFile,
-    FSCantReadFully,
-    NotADirectory,
-    OutOfMemory,
-    InvalidPath,
+pub const FsError = error{
+    init_failed,
+    write_dir_failed,
+    read_dir_failed,
+    read_blob_failed,
+    cant_open_file,
+    can_read_fully,
+    not_a_directory,
+    out_of_memory,
+    invalid_path,
 };
 
 var allocator: std.mem.Allocator = undefined;
 
-var dropped_files: std.ArrayList(*KyteBlob) = undefined;
-var fetches: std.AutoHashMap(sfetch.sfetch_handle_t, *KyteBlob) = undefined;
+var dropped_files: std.ArrayList(*Blob) = undefined;
+var fetches: std.AutoHashMap(sfetch.sfetch_handle_t, *Blob) = undefined;
 
 pub fn init(allocator_: std.mem.Allocator) !void {
     allocator = allocator_;
@@ -47,8 +47,8 @@ pub fn init(allocator_: std.mem.Allocator) !void {
     };
     sfetch.sfetch_setup(&sfetch_desc);
 
-    dropped_files = std.ArrayList(*KyteBlob).init(allocator);
-    fetches = std.AutoHashMap(sfetch.sfetch_handle_t, *KyteBlob).init(allocator);
+    dropped_files = std.ArrayList(*Blob).init(allocator);
+    fetches = std.AutoHashMap(sfetch.sfetch_handle_t, *Blob).init(allocator);
 }
 
 pub fn deinit() void {
@@ -68,7 +68,7 @@ pub fn deinit() void {
 }
 
 // File System Mounting Functions
-pub fn mountSetWritablePath(localpath: []const u8) FSError!void {
+pub fn mountSetWritablePath(localpath: []const u8) FsError!void {
     if (!isDirectory(localpath)) {
         return error.NotADirectory;
     }
@@ -94,7 +94,7 @@ pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) !void 
     }
 }
 
-pub fn mountAddReadablePathBlobZip(blob: *KyteBlob, mountpath: ?[]const u8) !void {
+pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) !void {
     const mount_path = mountpath orelse "/";
     const success = physfs.PHYSFS_mountMemory(blob.buffer.ptr, blob.size, null, blob.name.ptr, mount_path.ptr, 1);
 
@@ -111,7 +111,7 @@ pub fn mountAddReadablePathZip(localzippath: []const u8, mountpath: []const u8) 
 }
 
 // File Operations
-pub fn loadFile(fullpath: []const u8) !*KyteBlob {
+pub fn loadFile(fullpath: []const u8) !*Blob {
     const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return error.FSCantOpenFile;
     defer _ = physfs.PHYSFS_close(file);
 
@@ -127,10 +127,10 @@ pub fn loadFile(fullpath: []const u8) !*KyteBlob {
     const name = try allocator.dupe(u8, fullpath);
     errdefer allocator.free(name);
 
-    const blob = try allocator.create(KyteBlob);
+    const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
-    blob.* = KyteBlob{
+    blob.* = Blob{
         .status = .K_BLOB_READY,
         .name = name,
         .buffer = buf,
@@ -140,7 +140,7 @@ pub fn loadFile(fullpath: []const u8) !*KyteBlob {
     return blob;
 }
 
-pub fn saveBlobToFile(blob: *KyteBlob, path: ?[]const u8) !void {
+pub fn saveBlobToFile(blob: *Blob, path: ?[]const u8) !void {
     const full_path = if (path) |p|
         try std.fmt.allocPrint(allocator, "{s}/{s}", .{ p, blob.name })
     else
@@ -157,15 +157,15 @@ pub fn saveBlobToFile(blob: *KyteBlob, path: ?[]const u8) !void {
     physfs.PHYSFS_close(file);
 }
 
-pub fn getBlobData(blob: *KyteBlob) []const u8 {
+pub fn getBlobData(blob: *Blob) []const u8 {
     return blob.buffer;
 }
 
-pub fn getBlobName(blob: *KyteBlob) []const u8 {
+pub fn getBlobName(blob: *Blob) []const u8 {
     return blob.name;
 }
 
-pub fn setBlobName(blob: *KyteBlob, new_name: []const u8) !void {
+pub fn setBlobName(blob: *Blob, new_name: []const u8) !void {
     const old_name = blob.name;
     blob.name = try allocator.dupe(u8, new_name);
     allocator.free(old_name);
@@ -211,7 +211,7 @@ pub fn getDroppedFileCount() usize {
     return dropped_files.items.len;
 }
 
-pub fn getDroppedFileBlobs() []const *KyteBlob {
+pub fn getDroppedFileBlobs() []const *Blob {
     return dropped_files.items;
 }
 
@@ -228,7 +228,7 @@ pub fn addDroppedFile(name: []const u8, data: []const u8) !void {
 }
 
 // Fetch Operations
-fn fetch_file_callback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c) void {
+fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c) void {
     const response: *const sfetch.sfetch_response_t = @ptrCast(response_);
     if (response.finished) {
         if (fetches.get(response.handle)) |blob| {
@@ -257,11 +257,11 @@ fn fetch_file_callback(response_: [*c]const sfetch.sfetch_response_t) callconv(.
     }
 }
 
-pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usize) !*KyteBlob {
-    const blob = try allocator.create(KyteBlob);
+pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usize) !*Blob {
+    const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
-    blob.* = KyteBlob{
+    blob.* = Blob{
         .status = .K_BLOB_IN_PROGRESS,
         .name = try allocator.dupe(u8, blobname),
         .buffer = try allocator.alloc(u8, estimated_size),
@@ -270,7 +270,7 @@ pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usi
 
     const req = sfetch.sfetch_request_t{
         .path = url.ptr,
-        .callback = fetch_file_callback,
+        .callback = fetchFileCallback,
         .buffer = .{
             .ptr = blob.buffer.ptr,
             .size = estimated_size,
@@ -283,7 +283,7 @@ pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usi
     return blob;
 }
 
-pub fn checkFetchStatus(blob: *KyteBlob) KyteFetchStatus {
+pub fn checkFetchStatus(blob: *Blob) FetchStatus {
     return blob.status;
 }
 
@@ -292,8 +292,8 @@ pub fn updateFetchTasks() void {
 }
 
 // Utility Functions
-pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*KyteBlob {
-    const blob = try allocator.create(KyteBlob);
+pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*Blob {
+    const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
     const blob_buf = try allocator.alloc(u8, buf.len);
@@ -304,7 +304,7 @@ pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*KyteBlob {
 
     @memcpy(blob_buf, buf);
 
-    blob.* = KyteBlob{
+    blob.* = Blob{
         .status = .K_BLOB_READY,
         .name = name,
         .buffer = blob_buf,
@@ -314,11 +314,11 @@ pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*KyteBlob {
     return blob;
 }
 
-pub fn createBlobEmpty(size: usize, name: []const u8) !*KyteBlob {
-    const blob = try allocator.create(KyteBlob);
+pub fn createBlobEmpty(size: usize, name: []const u8) !*Blob {
+    const blob = try allocator.create(Blob);
     const blob_buf = try allocator.alloc(u8, size);
 
-    blob.* = KyteBlob{
+    blob.* = Blob{
         .status = .K_BLOB_READY,
         .name = try allocator.dupe(u8, name),
         .buffer = blob_buf,
@@ -328,7 +328,7 @@ pub fn createBlobEmpty(size: usize, name: []const u8) !*KyteBlob {
     return blob;
 }
 
-pub fn removeBlob(blob: *KyteBlob) void {
+pub fn removeBlob(blob: *Blob) void {
     // Check if already freed
     if (!blob.is_valid) return;
 
