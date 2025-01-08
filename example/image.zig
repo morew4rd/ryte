@@ -15,7 +15,6 @@ pub const KyteImage = struct {
     is_canvas: bool = false,
     _depth_image: sg.sg_image = undefined,
     _attch: sg.sg_attachments = undefined,
-    allocator: std.mem.Allocator,
 };
 
 const KyteBlob = @import("fs.zig").KyteBlob;
@@ -25,7 +24,7 @@ pub const ImageError = error{
     InvalidImage,
 };
 
-fn makeImageFromData(allocator: std.mem.Allocator, buf: []const u8) !KyteImage {
+fn makeImageFromData(buf: []const u8) !KyteImage {
     var width: c_int = undefined;
     var height: c_int = undefined;
     var channels: c_int = undefined;
@@ -71,18 +70,17 @@ fn makeImageFromData(allocator: std.mem.Allocator, buf: []const u8) !KyteImage {
         .width = width,
         .height = height,
         .is_canvas = false,
-        .allocator = allocator,
     };
 }
 
-pub fn loadImageFromBlob(allocator: std.mem.Allocator, blob: *KyteBlob) !KyteImage {
-    return try makeImageFromData(allocator, blob.buffer);
+pub fn loadImageFromBlob(blob: *KyteBlob) !KyteImage {
+    return try makeImageFromData(blob.buffer);
 }
 
-pub fn loadImageFromFile(allocator: std.mem.Allocator, fullpath: []const u8) !KyteImage {
+pub fn loadImageFromFile(fullpath: []const u8) !KyteImage {
     const blob = try fs.loadFile(fullpath);
     defer fs.removeBlob(blob);
-    return try loadImageFromBlob(allocator, blob);
+    return try loadImageFromBlob(blob);
 }
 
 pub fn removeImage(img: KyteImage) void {

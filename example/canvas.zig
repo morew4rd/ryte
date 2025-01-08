@@ -5,19 +5,16 @@ const sge = @import("sokol_gfx_ext");
 const si = @import("stb_image");
 const siw = @import("stb_image_write");
 
-const KyteImage = @import("image.zig").KyteImage;
+const image = @import("image.zig");
+const KyteImage = image.KyteImage;
 
-pub fn newCanvas(allocator: std.mem.Allocator, w: i32, h: i32) !*KyteImage {
-    const c = try allocator.create(KyteImage);
-    errdefer allocator.destroy(c);
-
-    c.* = KyteImage{
+pub fn newCanvas(w: i32, h: i32) !KyteImage {
+    var c = KyteImage{
         .width = w,
         .height = h,
         .is_canvas = true,
         ._image_handle = undefined,
         ._sampler_handle = undefined,
-        .allocator = allocator,
     };
 
     // Create frame buffer image
@@ -71,7 +68,7 @@ pub fn newCanvas(allocator: std.mem.Allocator, w: i32, h: i32) !*KyteImage {
     return c;
 }
 
-pub fn setCanvas(cvs: ?*KyteImage) !void {
+pub fn setCanvas(cvs: ?KyteImage) !void {
     if (cvs) |c| {
         if (!c.is_canvas) return error.ImageNotCanvas;
 
@@ -109,4 +106,8 @@ pub fn resetCanvas() void {
     sgp.sgp_flush();
     sgp.sgp_end();
     sg.sg_end_pass();
+}
+
+pub inline fn removeCanvas(img: KyteImage) void {
+    image.removeImage(img);
 }

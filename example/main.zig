@@ -19,7 +19,7 @@ pub const allocator = std.heap.c_allocator;
 
 var angle: f32 = 0.3;
 
-var cvs: *image.KyteImage = undefined;
+var cvs: image.KyteImage = undefined;
 var font1: *font.KyteFont = undefined;
 var font2: *font.KyteFont = undefined;
 
@@ -65,10 +65,10 @@ pub fn main() !void {
 
     try input.initInputCallbacks(window.main_window.window);
 
-    cvs = try canvas.newCanvas(allocator, 200, 200);
-    defer allocator.destroy(cvs);
+    cvs = try canvas.newCanvas(200, 200);
+    defer canvas.removeCanvas(cvs);
 
-    img = try image.loadImageFromFile(allocator, "assets/skepjak.jpg");
+    img = try image.loadImageFromFile("assets/skepjak.jpg");
     defer image.removeImage(img);
 
     font1 = try font.loadFontFromFile(allocator, "assets/m5x7.ttf", 14);
