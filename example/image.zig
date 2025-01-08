@@ -7,7 +7,7 @@ const siw = @import("stb_image_write");
 
 const fs = @import("fs.zig");
 
-pub const KyteImage = struct {
+pub const Image = struct {
     _image_handle: sg.sg_image,
     _sampler_handle: sg.sg_sampler,
     width: i32,
@@ -24,7 +24,7 @@ pub const ImageError = error{
     InvalidImage,
 };
 
-fn makeImageFromData(buf: []const u8) !KyteImage {
+fn makeImageFromData(buf: []const u8) !Image {
     var width: c_int = undefined;
     var height: c_int = undefined;
     var channels: c_int = undefined;
@@ -64,7 +64,7 @@ fn makeImageFromData(buf: []const u8) !KyteImage {
 
     const sgsampler = sg.sg_make_sampler(&sampler_desc);
 
-    return KyteImage{
+    return Image{
         ._image_handle = sgimage,
         ._sampler_handle = sgsampler,
         .width = width,
@@ -73,17 +73,17 @@ fn makeImageFromData(buf: []const u8) !KyteImage {
     };
 }
 
-pub fn loadImageFromBlob(blob: *KyteBlob) !KyteImage {
+pub fn loadImageFromBlob(blob: *KyteBlob) !Image {
     return try makeImageFromData(blob.buffer);
 }
 
-pub fn loadImageFromFile(fullpath: []const u8) !KyteImage {
+pub fn loadImageFromFile(fullpath: []const u8) !Image {
     const blob = try fs.loadFile(fullpath);
     defer fs.removeBlob(blob);
     return try loadImageFromBlob(blob);
 }
 
-pub fn removeImage(img: KyteImage) void {
+pub fn removeImage(img: Image) void {
     sg.sg_destroy_image(img._image_handle);
     sg.sg_destroy_sampler(img._sampler_handle);
     if (img.is_canvas) {
@@ -92,22 +92,22 @@ pub fn removeImage(img: KyteImage) void {
     }
 }
 
-pub fn saveImage(img: KyteImage, fullpath: []const u8) !void {
+pub fn saveImage(img: Image, fullpath: []const u8) !void {
     // TODO: Implement image saving
     _ = img;
     _ = fullpath;
     return error.NotImplemented;
 }
 
-pub fn isCanvas(img: KyteImage) bool {
+pub fn isCanvas(img: Image) bool {
     return img.is_canvas;
 }
 
-pub fn getImageSize(img: KyteImage) struct { width: i32, height: i32 } {
+pub fn getImageSize(img: Image) struct { width: i32, height: i32 } {
     return .{ .width = img.width, .height = img.height };
 }
 
-pub fn drawImage(img: KyteImage, x: f32, y: f32) void {
+pub fn drawImage(img: Image, x: f32, y: f32) void {
     sgp.sgp_set_image(0, @bitCast(img._image_handle));
     sgp.sgp_set_sampler(0, @bitCast(img._sampler_handle));
 

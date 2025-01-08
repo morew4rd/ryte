@@ -6,10 +6,10 @@ const si = @import("stb_image");
 const siw = @import("stb_image_write");
 
 const image = @import("image.zig");
-const KyteImage = image.KyteImage;
+const Image = image.Image;
 
-pub fn newCanvas(w: i32, h: i32) !KyteImage {
-    var c = KyteImage{
+pub fn newCanvas(w: i32, h: i32) !Image {
+    var c = Image{
         .width = w,
         .height = h,
         .is_canvas = true,
@@ -68,7 +68,7 @@ pub fn newCanvas(w: i32, h: i32) !KyteImage {
     return c;
 }
 
-pub fn setCanvas(cvs: ?KyteImage) !void {
+pub fn setCanvas(cvs: ?Image) !void {
     if (cvs) |c| {
         if (!c.is_canvas) return error.ImageNotCanvas;
 
@@ -108,6 +108,6 @@ pub fn resetCanvas() void {
     sg.sg_end_pass();
 }
 
-pub inline fn removeCanvas(img: KyteImage) void {
+pub inline fn removeCanvas(img: Image) void {
     image.removeImage(img);
 }

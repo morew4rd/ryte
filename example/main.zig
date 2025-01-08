@@ -19,13 +19,13 @@ pub const allocator = std.heap.c_allocator;
 
 var angle: f32 = 0.3;
 
-var cvs: image.KyteImage = undefined;
+var cvs: image.Image = undefined;
 var font1: *font.Font = undefined;
 var font2: *font.Font = undefined;
 
 var files_blob: *fs.KyteBlob = undefined;
 
-var img: image.KyteImage = undefined;
+var img: image.Image = undefined;
 
 fn print_path() !void {
     if (builtin.os.tag != .emscripten) {
