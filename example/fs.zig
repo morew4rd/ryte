@@ -6,7 +6,6 @@ pub const Blob = struct {
     status: FetchStatus,
     name: []const u8,
     buffer: []u8,
-    size: usize,
     is_valid: bool = true, // Add this flag
 };
 
@@ -134,7 +133,6 @@ pub fn loadFile(fullpath: []const u8) !*Blob {
         .status = .ready,
         .name = name,
         .buffer = buf,
-        .size = read_len,
     };
 
     return blob;
@@ -238,10 +236,8 @@ fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c)
                 // Remove from fetches map
                 _ = fetches.remove(response.handle);
             } else {
-                if (response.data.size != blob.size) {
-                    if (allocator.resize(blob.buffer, response.data.size)) {
-                        blob.size = response.data.size;
-                    } else {
+                if (response.data.size != blob.buffer.len) {
+                    if (allocator.resize(blob.buffer, response.data.size)) {} else {
                         blob.status = .failed;
                         // Remove from fetches map
                         _ = fetches.remove(response.handle);
@@ -265,7 +261,6 @@ pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usi
         .status = .in_progress,
         .name = try allocator.dupe(u8, blobname),
         .buffer = try allocator.alloc(u8, estimated_size),
-        .size = estimated_size,
     };
 
     const req = sfetch.sfetch_request_t{
@@ -308,7 +303,6 @@ pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*Blob {
         .status = .ready,
         .name = name,
         .buffer = blob_buf,
-        .size = buf.len,
     };
 
     return blob;
@@ -322,7 +316,6 @@ pub fn createBlobEmpty(size: usize, name: []const u8) !*Blob {
         .status = .ready,
         .name = try allocator.dupe(u8, name),
         .buffer = blob_buf,
-        .size = size,
     };
 
     return blob;
