@@ -70,27 +70,27 @@ pub fn deinit() void {
 // File System Mounting Functions
 pub fn mountSetWritablePath(localpath: []const u8) FsError!void {
     if (!isDirectory(localpath)) {
-        return error.NotADirectory;
+        return error.not_a_directory;
     }
 
     const success = physfs.PHYSFS_setWriteDir(localpath.ptr);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to set PHYSFS write dir: {} {}\n", .{ success, errcode });
-        return error.WriteDirFailed;
+        return error.write_dir_failed;
     }
 }
 
 pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) !void {
     if (!isDirectory(localpath)) {
-        return error.NotADirectory;
+        return error.not_a_directory;
     }
 
     const success = physfs.PHYSFS_mount(localpath.ptr, mountpath.ptr, 1);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount dir: {} {}\n", .{ success, errcode });
-        return error.ReadDirFailed;
+        return error.read_dir_failed;
     }
 }
 
@@ -101,7 +101,7 @@ pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) !void {
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount memory zip: {} {}\n", .{ success, errcode });
-        return error.ReadBlobFailed;
+        return error.read_blob_failed;
     }
 }
 
@@ -131,7 +131,7 @@ pub fn loadFile(fullpath: []const u8) !*Blob {
     errdefer allocator.destroy(blob);
 
     blob.* = Blob{
-        .status = .K_BLOB_READY,
+        .status = .ready,
         .name = name,
         .buffer = buf,
         .size = read_len,
@@ -233,7 +233,7 @@ fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c)
     if (response.finished) {
         if (fetches.get(response.handle)) |blob| {
             if (response.failed) {
-                blob.status = .K_BLOB_FAILED;
+                blob.status = .failed;
                 std.log.err("Fetch failed for: {s}\n", .{blob.name});
                 // Remove from fetches map
                 _ = fetches.remove(response.handle);
@@ -242,13 +242,13 @@ fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c)
                     if (allocator.resize(blob.buffer, response.data.size)) {
                         blob.size = response.data.size;
                     } else {
-                        blob.status = .K_BLOB_FAILED;
+                        blob.status = .failed;
                         // Remove from fetches map
                         _ = fetches.remove(response.handle);
                         return;
                     }
                 }
-                blob.status = .K_BLOB_READY;
+                blob.status = .ready;
                 std.log.info("Fetch succeeded for: {s}\n", .{blob.name});
                 // Remove from fetches map
                 _ = fetches.remove(response.handle);
@@ -262,7 +262,7 @@ pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usi
     errdefer allocator.destroy(blob);
 
     blob.* = Blob{
-        .status = .K_BLOB_IN_PROGRESS,
+        .status = .in_progress,
         .name = try allocator.dupe(u8, blobname),
         .buffer = try allocator.alloc(u8, estimated_size),
         .size = estimated_size,
@@ -305,7 +305,7 @@ pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*Blob {
     @memcpy(blob_buf, buf);
 
     blob.* = Blob{
-        .status = .K_BLOB_READY,
+        .status = .ready,
         .name = name,
         .buffer = blob_buf,
         .size = buf.len,
@@ -319,7 +319,7 @@ pub fn createBlobEmpty(size: usize, name: []const u8) !*Blob {
     const blob_buf = try allocator.alloc(u8, size);
 
     blob.* = Blob{
-        .status = .K_BLOB_READY,
+        .status = .ready,
         .name = try allocator.dupe(u8, name),
         .buffer = blob_buf,
         .size = size,

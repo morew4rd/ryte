@@ -52,7 +52,7 @@ pub fn main() !void {
     files_blob = try fs.fetchFileAsync("assets/files.zip", "files", 1_000_000);
     defer {
         // Only remove if the blob is still valid
-        if (files_blob.status != .K_BLOB_FAILED and files_blob.buffer.len > 0) {
+        if (files_blob.status != .failed and files_blob.buffer.len > 0) {
             fs.removeBlob(files_blob);
         }
     }
@@ -105,7 +105,7 @@ fn checkFetches() void {
 fn tickFn(ts: window.TickState) void {
     _ = ts;
     checkFetches();
-    if (files_blob.status == .K_BLOB_READY) {
+    if (files_blob.status == .ready) {
         if (input.mouseDown(input.MouseButton.mb1)) {
             angle += 0.1;
         }
