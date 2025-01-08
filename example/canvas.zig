@@ -5,16 +5,7 @@ const sge = @import("sokol_gfx_ext");
 const si = @import("stb_image");
 const siw = @import("stb_image_write");
 
-pub const KyteImage = struct {
-    _image_handle: sg.sg_image,
-    _sampler_handle: sg.sg_sampler,
-    width: i32,
-    height: i32,
-    is_canvas: bool = false,
-    _depth_image: sg.sg_image = undefined,
-    _attch: sg.sg_attachments = undefined,
-    allocator: std.mem.Allocator,
-};
+const KyteImage = @import("image.zig").KyteImage;
 
 pub fn newCanvas(allocator: std.mem.Allocator, w: i32, h: i32) !*KyteImage {
     const c = try allocator.create(KyteImage);

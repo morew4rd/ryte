@@ -7,6 +7,7 @@ const sgp = @import("sokol_gp");
 
 const window = @import("window.zig");
 const input = @import("input.zig");
+const image = @import("image.zig");
 const canvas = @import("canvas.zig");
 const font = @import("font.zig");
 const fs = @import("fs.zig");
@@ -18,11 +19,13 @@ pub const allocator = std.heap.c_allocator;
 
 var angle: f32 = 0.3;
 
-var cvs: *canvas.KyteImage = undefined;
+var cvs: *image.KyteImage = undefined;
 var font1: *font.KyteFont = undefined;
 var font2: *font.KyteFont = undefined;
 
 var files_blob: *fs.KyteBlob = undefined;
+
+var img: image.KyteImage = undefined;
 
 fn print_path() !void {
     if (builtin.os.tag != .emscripten) {
@@ -64,6 +67,9 @@ pub fn main() !void {
 
     cvs = try canvas.newCanvas(allocator, 200, 200);
     defer allocator.destroy(cvs);
+
+    img = try image.loadImageFromFile(allocator, "assets/skepjak.jpg");
+    defer image.removeImage(img);
 
     font1 = try font.loadFontFromFile(allocator, "assets/m5x7.ttf", 14);
     defer font.destroyFont(font1);
@@ -108,6 +114,8 @@ fn tickFn(ts: window.TickState) void {
 
         sgp.sgp_rotate(angle);
 
+        // Draw the loaded image
+
         sgp.sgp_set_color(1, 1, 0, 0.5);
         sgp.sgp_draw_filled_rect(20, 20, 300, 300);
 
@@ -119,5 +127,6 @@ fn tickFn(ts: window.TickState) void {
         sgp.sgp_set_color(1, 1, 1, 1);
         font.setCurrentFont(font2);
         font.drawText("lyte2d in zig", 10, 50) catch {};
+        image.drawImage(img, 100, 100);
     }
 }
