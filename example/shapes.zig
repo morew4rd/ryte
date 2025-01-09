@@ -104,3 +104,72 @@ pub fn drawEllipseLine(dest_x: f32, dest_y: f32, radius_x: f32, radius_y: f32) v
 
     sgp.sgp_draw_lines(@ptrCast(lines[0..count]), @intCast(count));
 }
+
+pub fn drawArc(x: f32, y: f32, radius: f32, start_angle: f32, end_angle: f32) void {
+    // Ensure start_angle is less than end_angle
+    var start = start_angle;
+    var end = end_angle;
+    if (start > end) {
+        const temp = start;
+        start = end;
+        end = temp;
+    }
+
+    // Calculate number of segments needed
+    const angle_range = end - start;
+    const segment_count = @max(10, @as(usize, @intFromFloat(angle_range * radius / pi)));
+    const angle_step = angle_range / @as(f32, @floatFromInt(segment_count));
+
+    // Create array of points
+    var points: [max_circle_tris + 1]sgp.sgp_point = undefined;
+
+    // Center point
+    points[0] = .{ .x = x, .y = y };
+
+    // Generate arc points
+    for (0..segment_count + 1) |i| {
+        const angle = start + @as(f32, @floatFromInt(i)) * angle_step;
+        points[i + 1] = .{ .x = x + radius * @cos(angle), .y = y + radius * @sin(angle) };
+    }
+
+    // Draw filled arc using triangles
+    var tris: [max_circle_tris]sgp.sgp_triangle = undefined;
+    for (0..segment_count) |i| {
+        tris[i] = .{ .a = points[0], .b = points[i + 1], .c = points[i + 2] };
+    }
+
+    sgp.sgp_draw_filled_triangles(@ptrCast(tris[0..segment_count]), @intCast(segment_count));
+}
+
+pub fn drawArcLine(x: f32, y: f32, radius: f32, start_angle: f32, end_angle: f32) void {
+    // Ensure start_angle is less than end_angle
+    var start = start_angle;
+    var end = end_angle;
+    if (start > end) {
+        const temp = start;
+        start = end;
+        end = temp;
+    }
+
+    // Calculate number of segments needed
+    const angle_range = end - start;
+    const segment_count = @max(10, @as(usize, @intFromFloat(angle_range * radius / pi)));
+    const angle_step = angle_range / @as(f32, @floatFromInt(segment_count));
+
+    // Create array of points
+    var points: [max_circle_tris + 1]sgp.sgp_point = undefined;
+
+    // Generate arc points
+    for (0..segment_count + 1) |i| {
+        const angle = start + @as(f32, @floatFromInt(i)) * angle_step;
+        points[i] = .{ .x = x + radius * @cos(angle), .y = y + radius * @sin(angle) };
+    }
+
+    // Draw arc using lines
+    var lines: [max_circle_tris]sgp.sgp_line = undefined;
+    for (0..segment_count) |i| {
+        lines[i] = .{ .a = points[i], .b = points[i + 1] };
+    }
+
+    sgp.sgp_draw_lines(@ptrCast(lines[0..segment_count]), @intCast(segment_count));
+}

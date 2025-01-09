@@ -127,6 +127,7 @@ fn tickFn_running(ts: window.TickState) void {
     shapes.drawCircle(150, 150, 50);
     shapes.drawEllipse(100, 250, 80, 220);
     shapes.drawTriangle(400, 10, 500, 230, 300, 400);
+    shapes.drawArc(500, 400, 180, 0.2, 2.9);
 }
 
 pub fn main() !void {
