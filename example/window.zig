@@ -5,6 +5,7 @@ const sg = @import("sokol_gfx");
 const sgp = @import("sokol_gp");
 
 const audio = @import("audio.zig");
+const input = @import("input.zig");
 
 pub const W = 800;
 pub const H = 600;
@@ -35,8 +36,8 @@ pub const TickState = struct {
     udata: ?*anyopaque,
     delta_time: f64,
     total_time: f64,
-    width: c_int,
-    height: c_int,
+    width: i32,
+    height: i32,
     resized: bool,
     fullscreen: bool,
 };
@@ -51,8 +52,8 @@ const Window = struct {
     window_resizable: bool,
     blendmode: BlendMode,
     filtermode: FilterMode,
-    width_save: c_int,
-    height_save: c_int,
+    width_save: i32,
+    height_save: i32,
     xpos_save: c_int,
     ypos_save: c_int,
     xscale: f32,
@@ -256,8 +257,8 @@ fn mainLoop() callconv(.c) void {
             .udata = main_window.tick_data,
             .delta_time = delta_time,
             .total_time = main_window.total_time,
-            .width = fb_width + @as(c_int, @intFromFloat(-pl - pr)),
-            .height = fb_height + @as(c_int, @intFromFloat(-pt - pb)),
+            .width = @intFromFloat((fb_width_f + -pl - pr) / xscale),
+            .height = @intFromFloat((fb_height_f + -pt - pb) / yscale),
             .resized = resized,
             .fullscreen = main_window.fullscreen,
         };
@@ -283,6 +284,9 @@ fn mainLoop() callconv(.c) void {
 
     // Swap buffers
     glfw.glfwSwapBuffers(main_window.window);
+
+    // Input
+    input.updateInputState();
 
     // Poll events
     glfw.glfwPollEvents();

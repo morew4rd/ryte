@@ -73,21 +73,28 @@ fn tickFn_loading(ts: window.TickState) void {
             // return;
         };
 
-        audio.playMusic(mus) catch {
-            std.debug.print("play music failed\n", .{});
-            @panic("EH");
-            // return
-        };
+        // audio.playMusic(mus) catch {
+        //     std.debug.print("play music failed\n", .{});
+        //     @panic("EH");
+        //     // return
+        // };
 
         window.setTickFn(tickFn_running, null);
     }
 }
 
 fn tickFn_running(ts: window.TickState) void {
-    _ = ts;
+    const w: f32 = @floatFromInt(ts.width);
+    const h: f32 = @floatFromInt(ts.height);
 
-    if (input.mouseDown(input.MouseButton.mb1)) {
-        angle += 0.1;
+    angle += @as(f32, @floatCast(ts.delta_time)) * 0.2;
+
+    if (input.mousePressed(input.MouseButton.mb1)) {
+        if (audio.isMusicPlaying(mus)) {
+            audio.stopMusic(mus);
+        } else {
+            audio.playMusic(mus) catch {};
+        }
     }
 
     if (input.keyDown(.f4)) {
@@ -97,7 +104,7 @@ fn tickFn_running(ts: window.TickState) void {
     window.setColor(0, 0, 0, 1);
     window.cls();
 
-    window.rotate(angle);
+    window.rotate(0.4);
 
     // Draw the loaded image
     window.setColor(1, 1, 0, 0.5);
@@ -114,10 +121,13 @@ fn tickFn_running(ts: window.TickState) void {
     image.drawImage(img, 100, 100);
 
     window.setColor(1, 0, 0, 0.4);
+    window.pushMatrix();
+    window.rotateAt(angle, w / 2, h / 2);
     shapes.drawCircle(150, 150, 50);
     shapes.drawEllipse(100, 250, 80, 220);
     shapes.drawTriangle(400, 10, 500, 230, 300, 400);
     shapes.drawArc(500, 400, 180, 0.2, 2.9);
+    window.popMatrix();
 }
 
 pub fn main() !void {
