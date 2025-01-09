@@ -11,6 +11,7 @@ const image = @import("image.zig");
 const canvas = @import("canvas.zig");
 const font = @import("font.zig");
 const fs = @import("fs.zig");
+const shapes = @import("shapes.zig");
 
 // Global allocator
 // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -109,7 +110,7 @@ fn tickFn_running(ts: window.TickState) void {
     // Draw the loaded image
 
     sgp.sgp_set_color(1, 1, 0, 0.5);
-    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+    shapes.drawRect(20, 20, 300, 300);
 
     sgp.sgp_reset_transform();
     sgp.sgp_reset_color();
@@ -121,6 +122,11 @@ fn tickFn_running(ts: window.TickState) void {
     font.setCurrentFont(font2);
     font.drawText("lyte2d in zig", 10, 50) catch {};
     image.drawImage(img, 100, 100);
+
+    sgp.sgp_set_color(1, 0, 0, 0.4);
+    shapes.drawCircle(150, 150, 50);
+    shapes.drawEllipse(100, 250, 80, 220);
+    shapes.drawTriangle(400, 10, 500, 230, 300, 400);
 }
 
 pub fn main() !void {
