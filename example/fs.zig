@@ -6,7 +6,6 @@ pub const Blob = struct {
     status: FetchStatus,
     name: []const u8,
     buffer: []u8,
-    is_valid: bool = true, // Add this flag
 };
 
 pub const FetchStatus = enum {
@@ -36,7 +35,7 @@ pub fn init(allocator_: std.mem.Allocator) !void {
     allocator = allocator_;
     const success = physfs.PHYSFS_init("");
     if (success == 0) {
-        return error.FSInitFailed;
+        return FsError.init_failed;
     }
 
     const sfetch_desc = sfetch.sfetch_desc_t{
@@ -69,27 +68,27 @@ pub fn deinit() void {
 // File System Mounting Functions
 pub fn mountSetWritablePath(localpath: []const u8) FsError!void {
     if (!isDirectory(localpath)) {
-        return error.not_a_directory;
+        return FsError.not_a_directory;
     }
 
     const success = physfs.PHYSFS_setWriteDir(localpath.ptr);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to set PHYSFS write dir: {} {}\n", .{ success, errcode });
-        return error.write_dir_failed;
+        return FsError.write_dir_failed;
     }
 }
 
 pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) !void {
     if (!isDirectory(localpath)) {
-        return error.not_a_directory;
+        return FsError.not_a_directory;
     }
 
     const success = physfs.PHYSFS_mount(localpath.ptr, mountpath.ptr, 1);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount dir: {} {}\n", .{ success, errcode });
-        return error.read_dir_failed;
+        return FsError.read_dir_failed;
     }
 }
 
@@ -100,7 +99,7 @@ pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) !void {
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount memory zip: {} {}\n", .{ success, errcode });
-        return error.read_blob_failed;
+        return FsError.read_blob_failed;
     }
 }
 
@@ -111,7 +110,7 @@ pub fn mountAddReadablePathZip(localzippath: []const u8, mountpath: []const u8) 
 
 // File Operations
 pub fn loadFile(fullpath: []const u8) !*Blob {
-    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return error.FSCantOpenFile;
+    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return FsError.cant_open_file;
     defer _ = physfs.PHYSFS_close(file);
 
     const len: usize = @intCast(physfs.PHYSFS_fileLength(file));
@@ -120,7 +119,7 @@ pub fn loadFile(fullpath: []const u8) !*Blob {
 
     const read_len: usize = @intCast(physfs.PHYSFS_readBytes(file, buf.ptr, len));
     if (len != read_len) {
-        return error.FSCantReadFully;
+        return FsError.can_read_fully;
     }
 
     const name = try allocator.dupe(u8, fullpath);
@@ -148,7 +147,7 @@ pub fn saveBlobToFile(blob: *Blob, path: ?[]const u8) !void {
     const file = physfs.PHYSFS_openWrite(full_path.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for writing: {s}: {}\n", .{ full_path, errcode });
-        return error.FSCantOpenFile;
+        return FsError.cant_open_file;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, blob.buffer.ptr, blob.size);
@@ -179,7 +178,7 @@ pub fn saveTextFile(fullpath: []const u8, text: []const u8) !void {
     const file = physfs.PHYSFS_openWrite(fullpath.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for writing: {s}: {}\n", .{ fullpath, errcode });
-        return error.FSCantOpenFile;
+        return FsError.cant_open_file;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, text.ptr, text.len);
@@ -190,7 +189,7 @@ pub fn appendTextFile(fullpath: []const u8, text: []const u8) !void {
     const file = physfs.PHYSFS_openAppend(fullpath.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for appending: {s}: {}\n", .{ fullpath, errcode });
-        return error.FSCantOpenFile;
+        return FsError.cant_open_file;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, text.ptr, text.len);
@@ -322,9 +321,6 @@ pub fn createBlobEmpty(size: usize, name: []const u8) !*Blob {
 }
 
 pub fn removeBlob(blob: *Blob) void {
-    // Check if already freed
-    if (!blob.is_valid) return;
-
     if (blob.buffer.len > 0) {
         allocator.free(blob.buffer);
         blob.buffer = &.{};
@@ -334,7 +330,6 @@ pub fn removeBlob(blob: *Blob) void {
         blob.name = &.{};
     }
 
-    blob.is_valid = false; // Mark as invalid
     allocator.destroy(blob);
 }
 

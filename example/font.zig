@@ -4,6 +4,7 @@ const sgp = @import("sokol_gp");
 const fnts = @import("fontstash");
 
 const window = @import("window.zig");
+const fs = @import("fs.zig");
 
 const atlas_size = 1024;
 
@@ -20,16 +21,6 @@ pub const Font = struct {
     fontsize: f32,
     allocator: std.mem.Allocator,
 };
-
-pub fn loadFontFromFile(allocator: std.mem.Allocator, fullpath: []const u8, initheight: f32) !*Font {
-    const file = try std.fs.cwd().openFile(fullpath, .{});
-    defer file.close();
-
-    const fontdata = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
-    errdefer allocator.free(fontdata);
-
-    return try loadFontFromMemory(allocator, fontdata, fullpath, initheight);
-}
 
 pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []const u8, initheight: f32) !*Font {
     const font = try allocator.create(Font);

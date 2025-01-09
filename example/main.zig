@@ -20,7 +20,7 @@ pub const allocator = std.heap.c_allocator;
 var angle: f32 = 0.3;
 
 var cvs: image.Image = undefined;
-var font1: *font.Font = undefined;
+
 var font2: *font.Font = undefined;
 
 var files_blob: *fs.Blob = undefined;
@@ -71,16 +71,10 @@ pub fn main() !void {
     img = try image.loadImageFromFile("assets/skepjak.jpg");
     defer image.removeImage(img);
 
-    font1 = try font.loadFontFromFile(allocator, "assets/m5x7.ttf", 14);
-    defer font.destroyFont(font1);
-
     const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
     defer fs.removeBlob(blob_font2);
-
     font2 = try font.loadFontFromMemory(allocator, blob_font2.buffer, blob_font2.name, 32);
     defer font.destroyFont(font2);
-
-    font.setCurrentFont(font1);
 
     sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);
 
@@ -125,6 +119,7 @@ fn tickFn(ts: window.TickState) void {
         sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
 
         sgp.sgp_set_color(1, 1, 1, 1);
+
         font.setCurrentFont(font2);
         font.drawText("lyte2d in zig", 10, 50) catch {};
         image.drawImage(img, 100, 100);

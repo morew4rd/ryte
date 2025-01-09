@@ -17,7 +17,7 @@ pub const Image = struct {
     _attch: sg.sg_attachments = undefined,
 };
 
-const KyteBlob = @import("fs.zig").Blob;
+const Blob = fs.Blob;
 
 pub const ImageError = error{
     CannotMakeImage,
@@ -73,7 +73,7 @@ fn makeImageFromData(buf: []const u8) !Image {
     };
 }
 
-pub fn loadImageFromBlob(blob: *KyteBlob) !Image {
+pub fn loadImageFromBlob(blob: *Blob) !Image {
     return try makeImageFromData(blob.buffer);
 }
 
