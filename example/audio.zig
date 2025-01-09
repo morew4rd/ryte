@@ -3,7 +3,7 @@ const physfs = @import("physfs");
 const raudio = @import("raudio");
 const fs = @import("fs.zig");
 
-pub const AudioErr = error{
+pub const AudioErr = fs.FsErr || error{
     InitFailed,
     LoadFailed,
     InvalidHandle,
@@ -15,7 +15,7 @@ pub const AudioErr = error{
     SystemResources,
 };
 
-const Music = struct {
+pub const Music = struct {
     music: raudio.Music,
     volume: f32,
     pan: f32,
@@ -30,7 +30,7 @@ const SoundData = struct {
     ref_count: usize,
 };
 
-const Sound = struct {
+pub const Sound = struct {
     sdi: *SoundData,
     sound_alias: raudio.Sound,
     volume: f32,
@@ -74,7 +74,7 @@ pub fn loadMusic(path: []const u8, allocator: std.mem.Allocator) AudioErr!*Music
     errdefer fs.removeBlob(blob);
 
     const file_extension = path[path.len - 4 ..]; // Get last 4 chars for extension
-    const music = raudio.LoadMusicStreamFromMemory(file_extension.ptr, blob.buffer.ptr, @intCast(blob.buffer.len));
+    var music = raudio.LoadMusicStreamFromMemory(file_extension.ptr, blob.buffer.ptr, @intCast(blob.buffer.len));
     if (!raudio.IsMusicReady(music)) {
         return AudioErr.LoadFailed;
     }

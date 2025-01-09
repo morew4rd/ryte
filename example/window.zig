@@ -4,6 +4,8 @@ const glfw = @import("glfw");
 const sg = @import("sokol_gfx");
 const sgp = @import("sokol_gp");
 
+const audio = @import("audio.zig");
+
 pub const W = 800;
 pub const H = 600;
 pub const initial_title = "ryte -- lyte2d in zig";
@@ -284,6 +286,9 @@ fn mainLoop() callconv(.c) void {
 
     // Poll events
     glfw.glfwPollEvents();
+
+    // Audio
+    audio.update();
 
     // Check for window close
     if (glfw.glfwWindowShouldClose(main_window.window) != 0) {

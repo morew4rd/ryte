@@ -24,6 +24,7 @@ var font2: *font.Font = undefined;
 var files_blob: *fs.Blob = undefined;
 
 var img: image.Image = undefined;
+var mus: *audio.Music = undefined;
 
 fn print_path() !void {
     if (builtin.os.tag != .emscripten) {
@@ -49,18 +50,33 @@ fn tickFn_loading(ts: window.TickState) void {
 
         img = image.loadImageFromFile("skepjak.jpg") catch {
             std.debug.print("image load failed\n", .{});
-            return;
+            @panic("EH");
+            // return;
         };
         // defer image.removeImage(img);
 
         const blob_font2 = fs.loadFile("DroidSansMono.ttf") catch {
             std.debug.print("font blob load failed\n", .{});
-            return;
+            @panic("EH");
+            // return;
         };
         // defer fs.removeBlob(blob_font2);
         font2 = font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32) catch {
             std.debug.print("font failed\n", .{});
-            return;
+            @panic("EH");
+            // return;
+        };
+
+        mus = audio.loadMusic("chase.mp3", allocator) catch {
+            std.debug.print("load music failed\n", .{});
+            @panic("EH");
+            // return;
+        };
+
+        audio.playMusic(mus) catch {
+            std.debug.print("play music failed\n", .{});
+            @panic("EH");
+            // return
         };
 
         window.setTickFn(tickFn_running, null);
@@ -118,7 +134,7 @@ pub fn main() !void {
     try fs.mountSetWritablePath(".");
 
     // Fetch the file
-    files_blob = try fs.fetchFileAsync("assets/files.zip", "files", 1_000_000);
+    files_blob = try fs.fetchFileAsync("assets/files.zip", "files", 10_000_000);
     defer {
         if (files_blob.status != .failed and files_blob.buffer.len > 0) {
             fs.removeBlob(files_blob);

@@ -510,6 +510,12 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
 
     raudio.root_module.addCMacro("RAUDIO_STANDALONE", "1");
     raudio.root_module.addCMacro("SUPPORT_MODULE_RAUDIO", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_WAV", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_OGG", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_MP3", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_FLAC", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_XM", "1");
+    raudio.root_module.addCMacro("SUPPORT_FILEFORMAT_MOD", "1");
 
     // Add emscripten system includes
     if (opt.is_wasm) {
