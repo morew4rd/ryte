@@ -74,6 +74,7 @@ const Window = struct {
     },
     tick_fn: ?*const fn (TickState) void = null,
     tick_data: ?*anyopaque = null,
+    do_quit: bool = false,
 };
 
 pub var main_window: Window = Window{
@@ -94,6 +95,7 @@ pub var main_window: Window = Window{
     .yscale = 1.0,
     .margins = .{},
     .paddings = .{},
+    .do_quit = false,
 };
 
 pub fn init() WindowErr!void {
@@ -183,7 +185,7 @@ pub fn startMainLoop() void {
         emsc.emscripten_set_main_loop(mainLoop, 0, true);
     } else {
         // Desktop-specific loop
-        while (glfw.glfwWindowShouldClose(main_window.window) == 0) {
+        while (glfw.glfwWindowShouldClose(main_window.window) == 0 and main_window.do_quit != true) {
             mainLoop();
             glfw.glfwPollEvents();
         }
@@ -290,4 +292,65 @@ fn mainLoop() callconv(.c) void {
             emsc.emscripten_cancel_main_loop();
         }
     }
+}
+
+pub inline fn setBlendMode(mode: BlendMode) void {
+    main_window.blendmode = mode;
+    sgp.sgp_set_blend_mode(@intFromEnum(mode));
+}
+
+pub fn setFilterMode(mode: FilterMode) void {
+    main_window.filtermode = mode;
+}
+
+pub inline fn cls() void {
+    sgp.sgp_clear();
+}
+
+pub inline fn setColor(r: f32, g: f32, b: f32, a: f32) void {
+    sgp.sgp_set_color(r, g, b, a);
+}
+
+pub inline fn resetColor() void {
+    setColor(1, 1, 1, 1);
+}
+
+pub inline fn pushMatrix() void {
+    sgp.sgp_push_transform();
+}
+
+pub inline fn popMatrix() void {
+    sgp.sgp_pop_transform();
+}
+
+pub inline fn resetMatrix() void {
+    sgp.sgp_reset_transform();
+}
+
+pub inline fn translate(delta_x: f32, delta_y: f32) void {
+    sgp.sgp_translate(delta_x, delta_y);
+}
+
+pub inline fn rotate(angle: f32) void {
+    sgp.sgp_rotate(angle);
+}
+
+pub inline fn rotateAt(angle: f32, x: f32, y: f32) void {
+    sgp.sgp_rotate_at(angle, x, y);
+}
+
+pub inline fn scale(scale_x: f32, scale_y: f32) void {
+    sgp.sgp_scale(scale_x, scale_y);
+}
+
+pub inline fn scaleAt(scale_x: f32, scale_y: f32, x: f32, y: f32) void {
+    sgp.sgp_scale_at(scale_x, scale_y, x, y);
+}
+
+pub inline fn quit() void {
+    // if (builtin.target.os.tag == .emscripten) {
+    //     const emsc = @import("emsc");
+    //     emsc.emscripten_cancel_main_loop();
+    // }
+    main_window.do_quit = true;
 }

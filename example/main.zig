@@ -3,8 +3,6 @@ const builtin = @import("builtin");
 const physfs = @import("physfs");
 const raudio = @import("raudio");
 
-const sgp = @import("sokol_gp");
-
 const window = @import("window.zig");
 const input = @import("input.zig");
 const image = @import("image.zig");
@@ -67,32 +65,6 @@ fn tickFn_loading(ts: window.TickState) void {
         };
 
         window.setTickFn(tickFn_running, null);
-
-        // defer font.destroyFont(font2);
-
-        // if (input.mouseDown(input.MouseButton.mb1)) {
-        //     angle += 0.1;
-        // }
-        // sgp.sgp_set_color(0, 0, 0, 1);
-        // sgp.sgp_clear();
-
-        // sgp.sgp_rotate(angle);
-
-        // // Draw the loaded image
-
-        // sgp.sgp_set_color(1, 1, 0, 0.5);
-        // sgp.sgp_draw_filled_rect(20, 20, 300, 300);
-
-        // sgp.sgp_reset_transform();
-        // sgp.sgp_reset_color();
-        // sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
-        // sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
-
-        // sgp.sgp_set_color(1, 1, 1, 1);
-
-        // font.setCurrentFont(font2);
-        // font.drawText("lyte2d in zig", 10, 50) catch {};
-        // image.drawImage(img, 100, 100);
     }
 }
 
@@ -102,28 +74,31 @@ fn tickFn_running(ts: window.TickState) void {
     if (input.mouseDown(input.MouseButton.mb1)) {
         angle += 0.1;
     }
-    sgp.sgp_set_color(0, 0, 0, 1);
-    sgp.sgp_clear();
 
-    sgp.sgp_rotate(angle);
+    if (input.keyDown(.f4)) {
+        window.quit();
+    }
+
+    window.setColor(0, 0, 0, 1);
+    window.cls();
+
+    window.rotate(angle);
 
     // Draw the loaded image
-
-    sgp.sgp_set_color(1, 1, 0, 0.5);
+    window.setColor(1, 1, 0, 0.5);
     shapes.drawRect(20, 20, 300, 300);
 
-    sgp.sgp_reset_transform();
-    sgp.sgp_reset_color();
-    sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
-    sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
+    window.resetMatrix();
+    window.resetColor();
+    image.drawImage(cvs, 100, 100);
 
-    sgp.sgp_set_color(1, 1, 1, 1);
+    window.setColor(1, 1, 1, 1);
 
     font.setCurrentFont(font2);
     font.drawText("lyte2d in zig", 10, 50) catch {};
     image.drawImage(img, 100, 100);
 
-    sgp.sgp_set_color(1, 0, 0, 0.4);
+    window.setColor(1, 0, 0, 0.4);
     shapes.drawCircle(150, 150, 50);
     shapes.drawEllipse(100, 250, 80, 220);
     shapes.drawTriangle(400, 10, 500, 230, 300, 400);
@@ -146,7 +121,6 @@ pub fn main() !void {
     // Fetch the file
     files_blob = try fs.fetchFileAsync("assets/files.zip", "files", 1_000_000);
     defer {
-        // Only remove if the blob is still valid
         if (files_blob.status != .failed and files_blob.buffer.len > 0) {
             fs.removeBlob(files_blob);
         }
@@ -163,21 +137,13 @@ pub fn main() !void {
     cvs = try canvas.newCanvas(200, 200);
     defer canvas.removeCanvas(cvs);
 
-    // img = try image.loadImageFromFile("assets/skepjak.jpg");
-    // defer image.removeImage(img);
-
-    // const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
-    // defer fs.removeBlob(blob_font2);
-    // font2 = try font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32);
-    // defer font.destroyFont(font2);
-
-    sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);
+    window.setBlendMode(.blend);
 
     try canvas.setCanvas(cvs);
-    sgp.sgp_set_color(0, 0, 0, 0);
-    sgp.sgp_clear();
-    sgp.sgp_set_color(0, 1, 0, 0.5);
-    sgp.sgp_draw_filled_rect(20, 20, 180, 140);
+    window.setColor(0, 0, 0, 0);
+    window.cls();
+    window.setColor(0, 1, 0, 0.5);
+    shapes.drawRect(20, 20, 180, 140);
     canvas.resetCanvas();
 
     // Set tick function and start main loop
