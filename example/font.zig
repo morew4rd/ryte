@@ -8,6 +8,14 @@ const fs = @import("fs.zig");
 
 const atlas_size = 1024;
 
+pub const FontError = error{
+    FontCreationFailed,
+    FontLoadFailed,
+    NoFontSet,
+    InvalidFont,
+    OutOfMemory,
+};
+
 pub const Font = struct {
     fonsctx: *fnts.FONScontext,
     fontdata: []u8,
@@ -22,7 +30,7 @@ pub const Font = struct {
     allocator: std.mem.Allocator,
 };
 
-pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []const u8, initheight: f32) !*Font {
+pub fn makeFontFromData(allocator: std.mem.Allocator, fontdata: []u8, name: []const u8, initheight: f32) FontError!*Font {
     const font = try allocator.create(Font);
     errdefer allocator.destroy(font);
 
@@ -56,11 +64,11 @@ pub fn loadFontFromMemory(allocator: std.mem.Allocator, fontdata: []u8, name: []
         .renderDraw = fonsRenderDraw,
     };
 
-    font.fonsctx = fnts.fonsCreateInternal(@ptrCast(&params)) orelse return error.font_creation_failed;
+    font.fonsctx = fnts.fonsCreateInternal(@ptrCast(&params)) orelse return FontError.FontCreationFailed;
     font.font = fnts.fonsAddFontMem(font.fonsctx, name.ptr, fontdata.ptr, @intCast(fontdata.len), 0);
 
     if (font.font == fnts.FONS_INVALID) {
-        return error.font_load_failed;
+        return FontError.FontLoadFailed;
     }
 
     return font;
@@ -239,11 +247,11 @@ pub fn getCurrentFont() ?*Font {
     return ctx.current_font;
 }
 
-pub fn drawText(text: []const u8, x: f32, y: f32) !void {
-    const current_font = ctx.current_font orelse return error.no_font_set;
+pub fn drawText(text: []const u8, x: f32, y: f32) FontError!void {
+    const current_font = ctx.current_font orelse return FontError.NoFontSet;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.invalid_font;
+        return FontError.InvalidFont;
     }
 
     const ctx_fons = current_font.fonsctx;
@@ -262,11 +270,11 @@ pub fn drawText(text: []const u8, x: f32, y: f32) !void {
     _ = last_x;
 }
 
-pub fn getTextSize(text: []const u8) !struct { width: f32, height: f32 } {
-    const current_font = ctx.current_font orelse return error.no_font_set;
+pub fn getTextSize(text: []const u8) FontError!struct { width: f32, height: f32 } {
+    const current_font = ctx.current_font orelse return FontError.NoFontSet;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.invalid_font;
+        return FontError.InvalidFont;
     }
 
     const ctx_fons = current_font.fonsctx;
@@ -280,11 +288,11 @@ pub fn getTextSize(text: []const u8) !struct { width: f32, height: f32 } {
     };
 }
 
-pub fn drawTextGetSize(text: []const u8, x: f32, y: f32) !struct { width: f32, height: f32 } {
-    const current_font = ctx.current_font orelse return error.no_font_set;
+pub fn drawTextGetSize(text: []const u8, x: f32, y: f32) FontError!struct { width: f32, height: f32 } {
+    const current_font = ctx.current_font orelse return FontError.NoFontSet;
 
     if (current_font.font == fnts.FONS_INVALID) {
-        return error.invalid_font;
+        return FontError.InvalidFont;
     }
 
     const ctx_fons = current_font.fonsctx;

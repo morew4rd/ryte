@@ -19,19 +19,20 @@ pub const Image = struct {
 
 const Blob = fs.Blob;
 
-pub const ImageError = error{
-    CannotMakeImage,
+pub const ImageErr = fs.FsErr || error{
+    CantMakeImage,
     InvalidImage,
+    NotImplemented,
 };
 
-fn makeImageFromData(buf: []const u8) !Image {
+fn makeImageFromData(buf: []const u8) ImageErr!Image {
     var width: c_int = undefined;
     var height: c_int = undefined;
     var channels: c_int = undefined;
 
     const data = si.stbi_load_from_memory(buf.ptr, @intCast(buf.len), &width, &height, &channels, 4);
     if (data == null) {
-        return ImageError.CannotMakeImage;
+        return ImageErr.CantMakeImage;
     }
     defer si.stbi_image_free(data);
 
@@ -73,11 +74,11 @@ fn makeImageFromData(buf: []const u8) !Image {
     };
 }
 
-pub fn loadImageFromBlob(blob: *Blob) !Image {
+pub fn loadImageFromBlob(blob: *Blob) ImageErr!Image {
     return try makeImageFromData(blob.buffer);
 }
 
-pub fn loadImageFromFile(fullpath: []const u8) !Image {
+pub fn loadImageFromFile(fullpath: []const u8) ImageErr!Image {
     const blob = try fs.loadFile(fullpath);
     defer fs.removeBlob(blob);
     return try loadImageFromBlob(blob);
@@ -92,11 +93,11 @@ pub fn removeImage(img: Image) void {
     }
 }
 
-pub fn saveImage(img: Image, fullpath: []const u8) !void {
+pub fn saveImage(img: Image, fullpath: []const u8) ImageErr!void {
     // TODO: Implement image saving
     _ = img;
     _ = fullpath;
-    return error.NotImplemented;
+    return ImageErr.NotImplemented;
 }
 
 pub fn isCanvas(img: Image) bool {

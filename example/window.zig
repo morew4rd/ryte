@@ -8,6 +8,13 @@ pub const W = 800;
 pub const H = 600;
 pub const initial_title = "ryte -- lyte2d in zig";
 
+pub const WindowErr = error{
+    GlfwInitFailed,
+    CouldntOpenWindow,
+    SG_IsInvalid,
+    SGP_IsInvalid,
+};
+
 pub const BlendMode = enum(u8) {
     none = 0,
     blend = 1,
@@ -89,9 +96,9 @@ pub var main_window: Window = Window{
     .paddings = .{},
 };
 
-pub fn init() !void {
+pub fn init() WindowErr!void {
     if (glfw.glfwInit() == 0) {
-        return error.GlfwInitFailed;
+        return WindowErr.GlfwInitFailed;
     }
 
     // Set OpenGL context hints
@@ -105,7 +112,7 @@ pub fn init() !void {
     if (builtin.target.os.tag == .emscripten) {
         const emsc = @import("emsc");
         emsc.emsc_init("#canvas", emsc.EMSC_TRY_WEBGL2);
-        main_window.window = glfw.glfwCreateWindow(emsc.emsc_width(), emsc.emsc_height(), initial_title, null, null) orelse return error.CouldntOpenWindow;
+        main_window.window = glfw.glfwCreateWindow(emsc.emsc_width(), emsc.emsc_height(), initial_title, null, null) orelse return WindowErr.CouldntOpenWindow;
         emsc.emscripten_set_window_title(initial_title);
     } else {
         // Start invisible on desktop platforms
@@ -115,7 +122,7 @@ pub fn init() !void {
         }
 
         // Create window
-        main_window.window = glfw.glfwCreateWindow(W, H, initial_title, null, null) orelse return error.CouldntOpenWindow;
+        main_window.window = glfw.glfwCreateWindow(W, H, initial_title, null, null) orelse return WindowErr.CouldntOpenWindow;
 
         // Get monitor and video mode
         main_window.monitor = glfw.glfwGetWindowMonitor(main_window.window) orelse glfw.glfwGetPrimaryMonitor().?;
@@ -147,14 +154,14 @@ pub fn init() !void {
     var sgdesc: sg.sg_desc = .{};
     sg.sg_setup(&sgdesc);
     if (!sg.sg_isvalid()) {
-        return error.SG_IsInvalid;
+        return WindowErr.SG_IsInvalid;
     }
 
     // Initialize Sokol GP
     var sgpdesc: sgp.sgp_desc = .{};
     sgp.sgp_setup(&sgpdesc);
     if (!sg.sg_isvalid()) {
-        return error.SGP_IsInvalid;
+        return WindowErr.SGP_IsInvalid;
     }
 }
 

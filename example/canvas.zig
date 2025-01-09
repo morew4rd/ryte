@@ -8,7 +8,15 @@ const siw = @import("stb_image_write");
 const image = @import("image.zig");
 const Image = image.Image;
 
-pub fn newCanvas(w: i32, h: i32) !Image {
+pub const CanvasErr = error{
+    CanvasBufferImageFailed,
+    CanvasDepthImageFailed,
+    CanvasAttachmentsFailed,
+    ImageNotCanvas,
+    ImageNil,
+};
+
+pub fn newCanvas(w: i32, h: i32) CanvasErr!Image {
     var c = Image{
         .width = w,
         .height = h,
@@ -26,7 +34,7 @@ pub fn newCanvas(w: i32, h: i32) !Image {
     c._image_handle = sg.sg_make_image(&fb_image_desc);
     if (sg.sg_query_image_state(c._image_handle) != sg.SG_RESOURCESTATE_VALID) {
         std.log.warn("Failed to create frame buffer image", .{});
-        return error.CanvasBufferImageFailed;
+        return CanvasErr.CanvasBufferImageFailed;
     }
 
     // Create sampler
@@ -46,7 +54,7 @@ pub fn newCanvas(w: i32, h: i32) !Image {
     c._depth_image = sg.sg_make_image(&fb_depth_image_desc);
     if (sg.sg_query_image_state(c._depth_image) != sg.SG_RESOURCESTATE_VALID) {
         std.log.warn("Failed to create frame depth image", .{});
-        return error.CanvasDepthImageFailed;
+        return CanvasErr.CanvasDepthImageFailed;
     }
 
     // Create attachments
@@ -62,15 +70,15 @@ pub fn newCanvas(w: i32, h: i32) !Image {
     c._attch = sg.sg_make_attachments(&attch_desc);
     if (sg.sg_query_attachments_state(c._attch) != sg.SG_RESOURCESTATE_VALID) {
         std.log.warn("Failed to create frame attachments", .{});
-        return error.CanvasAttachmentsFailed;
+        return CanvasErr.CanvasAttachmentsFailed;
     }
 
     return c;
 }
 
-pub fn setCanvas(cvs: ?Image) !void {
+pub fn setCanvas(cvs: ?Image) CanvasErr!void {
     if (cvs) |c| {
-        if (!c.is_canvas) return error.ImageNotCanvas;
+        if (!c.is_canvas) return CanvasErr.ImageNotCanvas;
 
         sgp.sgp_begin(c.width, c.height);
         sgp.sgp_scale(1.0, -1.0);
@@ -98,7 +106,7 @@ pub fn setCanvas(cvs: ?Image) !void {
         // TODO: set current canvas in global state (in C: k->current_canvas = c;)
 
     } else {
-        return error.ImageNil;
+        return CanvasErr.ImageNil;
     }
 }
 

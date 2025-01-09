@@ -73,7 +73,7 @@ pub fn main() !void {
 
     const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
     defer fs.removeBlob(blob_font2);
-    font2 = try font.loadFontFromMemory(allocator, blob_font2.buffer, blob_font2.name, 32);
+    font2 = try font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32);
     defer font.destroyFont(font2);
 
     sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);

@@ -14,16 +14,23 @@ pub const FetchStatus = enum {
     failed,
 };
 
-pub const FsError = error{
-    init_failed,
-    write_dir_failed,
-    read_dir_failed,
-    read_blob_failed,
-    cant_open_file,
-    can_read_fully,
-    not_a_directory,
-    out_of_memory,
-    invalid_path,
+pub const FsErr = error{
+    InitFailed,
+    WriteDirFailed,
+    ReadDirFailed,
+    ReadBlobFailed,
+    CantOpenFile,
+    CantReadFully,
+    NotADirectory,
+    OutOfMemory,
+    InvalidPath,
+    InvalidOperation,
+    FileNotFound,
+    AccessDenied,
+    AlreadyExists,
+    InvalidArgument,
+    SystemResources,
+    UnknownError,
 };
 
 var allocator: std.mem.Allocator = undefined;
@@ -31,11 +38,11 @@ var allocator: std.mem.Allocator = undefined;
 var dropped_files: std.ArrayList(*Blob) = undefined;
 var fetches: std.AutoHashMap(sfetch.sfetch_handle_t, *Blob) = undefined;
 
-pub fn init(allocator_: std.mem.Allocator) !void {
+pub fn init(allocator_: std.mem.Allocator) FsErr!void {
     allocator = allocator_;
     const success = physfs.PHYSFS_init("");
     if (success == 0) {
-        return FsError.init_failed;
+        return FsErr.InitFailed;
     }
 
     const sfetch_desc = sfetch.sfetch_desc_t{
@@ -66,51 +73,51 @@ pub fn deinit() void {
 }
 
 // File System Mounting Functions
-pub fn mountSetWritablePath(localpath: []const u8) FsError!void {
+pub fn mountSetWritablePath(localpath: []const u8) FsErr!void {
     if (!isDirectory(localpath)) {
-        return FsError.not_a_directory;
+        return FsErr.NotADirectory;
     }
 
     const success = physfs.PHYSFS_setWriteDir(localpath.ptr);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to set PHYSFS write dir: {} {}\n", .{ success, errcode });
-        return FsError.write_dir_failed;
+        return FsErr.WriteDirFailed;
     }
 }
 
-pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) !void {
+pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) FsErr!void {
     if (!isDirectory(localpath)) {
-        return FsError.not_a_directory;
+        return FsErr.NotADirectory;
     }
 
     const success = physfs.PHYSFS_mount(localpath.ptr, mountpath.ptr, 1);
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount dir: {} {}\n", .{ success, errcode });
-        return FsError.read_dir_failed;
+        return FsErr.ReadDirFailed;
     }
 }
 
-pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) !void {
+pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) FsErr!void {
     const mount_path = mountpath orelse "/";
     const success = physfs.PHYSFS_mountMemory(blob.buffer.ptr, blob.size, null, blob.name.ptr, mount_path.ptr, 1);
 
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to mount memory zip: {} {}\n", .{ success, errcode });
-        return FsError.read_blob_failed;
+        return FsErr.ReadBlobFailed;
     }
 }
 
-pub fn mountAddReadablePathZip(localzippath: []const u8, mountpath: []const u8) !void {
+pub fn mountAddReadablePathZip(localzippath: []const u8, mountpath: []const u8) FsErr!void {
     const blob = try loadFile(localzippath);
     return mountAddReadablePathBlobZip(blob, mountpath);
 }
 
 // File Operations
-pub fn loadFile(fullpath: []const u8) !*Blob {
-    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return FsError.cant_open_file;
+pub fn loadFile(fullpath: []const u8) FsErr!*Blob {
+    const file = physfs.PHYSFS_openRead(fullpath.ptr) orelse return FsErr.CantOpenFile;
     defer _ = physfs.PHYSFS_close(file);
 
     const len: usize = @intCast(physfs.PHYSFS_fileLength(file));
@@ -119,7 +126,7 @@ pub fn loadFile(fullpath: []const u8) !*Blob {
 
     const read_len: usize = @intCast(physfs.PHYSFS_readBytes(file, buf.ptr, len));
     if (len != read_len) {
-        return FsError.can_read_fully;
+        return FsErr.CantReadFully;
     }
 
     const name = try allocator.dupe(u8, fullpath);
@@ -137,7 +144,7 @@ pub fn loadFile(fullpath: []const u8) !*Blob {
     return blob;
 }
 
-pub fn saveBlobToFile(blob: *Blob, path: ?[]const u8) !void {
+pub fn saveBlobToFile(blob: *Blob, path: ?[]const u8) FsErr!void {
     const full_path = if (path) |p|
         try std.fmt.allocPrint(allocator, "{s}/{s}", .{ p, blob.name })
     else
@@ -147,7 +154,7 @@ pub fn saveBlobToFile(blob: *Blob, path: ?[]const u8) !void {
     const file = physfs.PHYSFS_openWrite(full_path.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for writing: {s}: {}\n", .{ full_path, errcode });
-        return FsError.cant_open_file;
+        return FsErr.CantOpenFile;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, blob.buffer.ptr, blob.size);
@@ -162,34 +169,34 @@ pub fn getBlobName(blob: *Blob) []const u8 {
     return blob.name;
 }
 
-pub fn setBlobName(blob: *Blob, new_name: []const u8) !void {
+pub fn setBlobName(blob: *Blob, new_name: []const u8) FsErr!void {
     const old_name = blob.name;
     blob.name = try allocator.dupe(u8, new_name);
     allocator.free(old_name);
 }
 
 // Text File Operations
-pub fn loadTextFile(fullpath: []const u8) ![]const u8 {
+pub fn loadTextFile(fullpath: []const u8) FsErr![]const u8 {
     const blob = try loadFile(fullpath);
     return blob.buffer;
 }
 
-pub fn saveTextFile(fullpath: []const u8, text: []const u8) !void {
+pub fn saveTextFile(fullpath: []const u8, text: []const u8) FsErr!void {
     const file = physfs.PHYSFS_openWrite(fullpath.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for writing: {s}: {}\n", .{ fullpath, errcode });
-        return FsError.cant_open_file;
+        return FsErr.CantOpenFile;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, text.ptr, text.len);
     physfs.PHYSFS_close(file);
 }
 
-pub fn appendTextFile(fullpath: []const u8, text: []const u8) !void {
+pub fn appendTextFile(fullpath: []const u8, text: []const u8) FsErr!void {
     const file = physfs.PHYSFS_openAppend(fullpath.ptr) orelse {
         const errcode = physfs.PHYSFS_getLastErrorCode();
         std.log.warn("Failed to open file for appending: {s}: {}\n", .{ fullpath, errcode });
-        return FsError.cant_open_file;
+        return FsErr.CantOpenFile;
     };
 
     _ = physfs.PHYSFS_writeBytes(file, text.ptr, text.len);
@@ -197,7 +204,7 @@ pub fn appendTextFile(fullpath: []const u8, text: []const u8) !void {
 }
 
 // Dropped Files Handling
-pub fn handlePathDrop(paths: []const []const u8) !void {
+pub fn handlePathDrop(paths: []const []const u8) FsErr!void {
     for (paths) |path| {
         const blob = try loadFile(path);
         try dropped_files.append(blob);
@@ -219,7 +226,7 @@ pub fn clearDroppedFiles() void {
     dropped_files.clearRetainingCapacity();
 }
 
-pub fn addDroppedFile(name: []const u8, data: []const u8) !void {
+pub fn addDroppedFile(name: []const u8, data: []const u8) FsErr!void {
     const blob = try createBlobFromBuffer(data, name);
     try dropped_files.append(blob);
 }
@@ -232,27 +239,24 @@ fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c)
             if (response.failed) {
                 blob.status = .failed;
                 std.log.err("Fetch failed for: {s}\n", .{blob.name});
-                // Remove from fetches map
                 _ = fetches.remove(response.handle);
             } else {
                 if (response.data.size != blob.buffer.len) {
                     if (allocator.resize(blob.buffer, response.data.size)) {} else {
                         blob.status = .failed;
-                        // Remove from fetches map
                         _ = fetches.remove(response.handle);
                         return;
                     }
                 }
                 blob.status = .ready;
                 std.log.info("Fetch succeeded for: {s}\n", .{blob.name});
-                // Remove from fetches map
                 _ = fetches.remove(response.handle);
             }
         }
     }
 }
 
-pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usize) !*Blob {
+pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usize) FsErr!*Blob {
     const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
@@ -286,7 +290,7 @@ pub fn updateFetchTasks() void {
 }
 
 // Utility Functions
-pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*Blob {
+pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) FsErr!*Blob {
     const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
@@ -307,7 +311,7 @@ pub fn createBlobFromBuffer(buf: []const u8, blobname: []const u8) !*Blob {
     return blob;
 }
 
-pub fn createBlobEmpty(size: usize, name: []const u8) !*Blob {
+pub fn createBlobEmpty(size: usize, name: []const u8) FsErr!*Blob {
     const blob = try allocator.create(Blob);
     const blob_buf = try allocator.alloc(u8, size);
 
@@ -344,14 +348,6 @@ fn isDirectory(path: []const u8) bool {
     };
     _ = stat_info;
     return true;
-
-    // if (stat_info) |stat| {
-    //     _ = stat;
-    //     return std.os.S.ISDIR(stat_info.mode);
-    // } else |err| {
-    //     std.log.warn("Cannot access: {s}\n", .{err});
-    //     return false;
-    // }
 }
 
 fn slog_func(msg: [*c]const u8, line: u32, column: u32, filename: [*c]const u8, severity: u32, mm: [*c]const u8, user_data: ?*anyopaque) callconv(.c) void {
@@ -360,25 +356,3 @@ fn slog_func(msg: [*c]const u8, line: u32, column: u32, filename: [*c]const u8, 
     _ = mm;
     std.debug.print("[{}:{}] {}: {s}\n", .{ line, column, severity, msg });
 }
-
-// test "basic file operations" {
-//     try init();
-//     defer deinit();
-
-//     // Test file loading
-//     const test_file = "test.txt";
-//     const blob = try loadFile(test_file);
-//     defer removeBlob(blob);
-
-//     try std.testing.expectEqualStrings("expected content", blob.buffer);
-
-//     // Test file saving
-//     const new_blob = try createBlobFromBuffer("new content", "new.txt");
-//     defer removeBlob(new_blob);
-//     try saveBlobToFile(new_blob, null);
-
-//     // Verify saved content
-//     const saved_blob = try loadFile("new.txt");
-//     defer removeBlob(saved_blob);
-//     try std.testing.expectEqualStrings("new content", saved_blob.buffer);
-// }
