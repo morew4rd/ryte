@@ -35,6 +35,94 @@ fn print_path() !void {
     }
 }
 
+fn checkFetches() void {
+    fs.updateFetchTasks();
+}
+
+fn tickFn_loading(ts: window.TickState) void {
+    _ = ts;
+    checkFetches();
+    if (files_blob.status == .ready) {
+        fs.mountAddReadablePathBlobZip(files_blob, "") catch {
+            std.debug.print("ZIP failed\n", .{});
+            @panic("EH");
+            // return;
+        };
+
+        img = image.loadImageFromFile("skepjak.jpg") catch {
+            std.debug.print("image load failed\n", .{});
+            return;
+        };
+        // defer image.removeImage(img);
+
+        const blob_font2 = fs.loadFile("DroidSansMono.ttf") catch {
+            std.debug.print("font blob load failed\n", .{});
+            return;
+        };
+        // defer fs.removeBlob(blob_font2);
+        font2 = font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32) catch {
+            std.debug.print("font failed\n", .{});
+            return;
+        };
+
+        window.setTickFn(tickFn_running, null);
+
+        // defer font.destroyFont(font2);
+
+        // if (input.mouseDown(input.MouseButton.mb1)) {
+        //     angle += 0.1;
+        // }
+        // sgp.sgp_set_color(0, 0, 0, 1);
+        // sgp.sgp_clear();
+
+        // sgp.sgp_rotate(angle);
+
+        // // Draw the loaded image
+
+        // sgp.sgp_set_color(1, 1, 0, 0.5);
+        // sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+
+        // sgp.sgp_reset_transform();
+        // sgp.sgp_reset_color();
+        // sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
+        // sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
+
+        // sgp.sgp_set_color(1, 1, 1, 1);
+
+        // font.setCurrentFont(font2);
+        // font.drawText("lyte2d in zig", 10, 50) catch {};
+        // image.drawImage(img, 100, 100);
+    }
+}
+
+fn tickFn_running(ts: window.TickState) void {
+    _ = ts;
+
+    if (input.mouseDown(input.MouseButton.mb1)) {
+        angle += 0.1;
+    }
+    sgp.sgp_set_color(0, 0, 0, 1);
+    sgp.sgp_clear();
+
+    sgp.sgp_rotate(angle);
+
+    // Draw the loaded image
+
+    sgp.sgp_set_color(1, 1, 0, 0.5);
+    sgp.sgp_draw_filled_rect(20, 20, 300, 300);
+
+    sgp.sgp_reset_transform();
+    sgp.sgp_reset_color();
+    sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
+    sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
+
+    sgp.sgp_set_color(1, 1, 1, 1);
+
+    font.setCurrentFont(font2);
+    font.drawText("lyte2d in zig", 10, 50) catch {};
+    image.drawImage(img, 100, 100);
+}
+
 pub fn main() !void {
     std.debug.print("hello: ryte example.\n", .{});
 
@@ -68,13 +156,13 @@ pub fn main() !void {
     cvs = try canvas.newCanvas(200, 200);
     defer canvas.removeCanvas(cvs);
 
-    img = try image.loadImageFromFile("assets/skepjak.jpg");
-    defer image.removeImage(img);
+    // img = try image.loadImageFromFile("assets/skepjak.jpg");
+    // defer image.removeImage(img);
 
-    const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
-    defer fs.removeBlob(blob_font2);
-    font2 = try font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32);
-    defer font.destroyFont(font2);
+    // const blob_font2 = try fs.loadFile("assets/DroidSansMono.ttf");
+    // defer fs.removeBlob(blob_font2);
+    // font2 = try font.makeFontFromData(allocator, blob_font2.buffer, blob_font2.name, 32);
+    // defer font.destroyFont(font2);
 
     sgp.sgp_set_blend_mode(sgp.SGP_BLENDMODE_BLEND);
 
@@ -86,42 +174,12 @@ pub fn main() !void {
     canvas.resetCanvas();
 
     // Set tick function and start main loop
-    window.setTickFn(tickFn, null);
+    window.setTickFn(tickFn_loading, null);
     window.startMainLoop();
 
-    std.debug.print("hello: ryte example.\n", .{});
+    std.debug.print("good bye: ryte example.\n", .{});
 }
 
-fn checkFetches() void {
-    fs.updateFetchTasks();
-}
-
-fn tickFn(ts: window.TickState) void {
-    _ = ts;
-    checkFetches();
-    if (files_blob.status == .ready) {
-        if (input.mouseDown(input.MouseButton.mb1)) {
-            angle += 0.1;
-        }
-        sgp.sgp_set_color(0, 0, 0, 1);
-        sgp.sgp_clear();
-
-        sgp.sgp_rotate(angle);
-
-        // Draw the loaded image
-
-        sgp.sgp_set_color(1, 1, 0, 0.5);
-        sgp.sgp_draw_filled_rect(20, 20, 300, 300);
-
-        sgp.sgp_reset_transform();
-        sgp.sgp_reset_color();
-        sgp.sgp_set_image(0, @bitCast(cvs._image_handle));
-        sgp.sgp_draw_textured_rect(0, .{ .x = 0, .y = 0, .h = 200, .w = 200 }, .{ .x = 0, .y = 0, .h = 200, .w = 200 });
-
-        sgp.sgp_set_color(1, 1, 1, 1);
-
-        font.setCurrentFont(font2);
-        font.drawText("lyte2d in zig", 10, 50) catch {};
-        image.drawImage(img, 100, 100);
-    }
+test "api testing" {
+    //
 }

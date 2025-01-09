@@ -101,11 +101,13 @@ pub fn mountAddReadablePath(localpath: []const u8, mountpath: []const u8) FsErr!
 
 pub fn mountAddReadablePathBlobZip(blob: *Blob, mountpath: ?[]const u8) FsErr!void {
     const mount_path = mountpath orelse "/";
-    const success = physfs.PHYSFS_mountMemory(blob.buffer.ptr, blob.size, null, blob.name.ptr, mount_path.ptr, 1);
+    const success = physfs.PHYSFS_mountMemory(blob.buffer.ptr, blob.buffer.len, null, blob.name.ptr, mount_path.ptr, 1);
+
+    std.log.info("mounting: len: {} name: {s}\n", .{ blob.buffer.len, blob.name });
 
     if (success == 0) {
         const errcode = physfs.PHYSFS_getLastErrorCode();
-        std.log.warn("Failed to mount memory zip: {} {}\n", .{ success, errcode });
+        std.log.warn("Failed to mount memory zip: {} {}: {s} \n", .{ success, errcode, physfs.PHYSFS_getErrorByCode(errcode) });
         return FsErr.ReadBlobFailed;
     }
 }
@@ -232,17 +234,23 @@ pub fn addDroppedFile(name: []const u8, data: []const u8) FsErr!void {
 }
 
 // Fetch Operations
-fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c) void {
+fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.C) void {
     const response: *const sfetch.sfetch_response_t = @ptrCast(response_);
-    if (response.finished) {
-        if (fetches.get(response.handle)) |blob| {
+
+    if (fetches.get(response.handle)) |blob| {
+        if (response.finished) {
             if (response.failed) {
+                // Handle failure
                 blob.status = .failed;
                 std.log.err("Fetch failed for: {s}\n", .{blob.name});
-                _ = fetches.remove(response.handle);
             } else {
+                // Handle success
                 if (response.data.size != blob.buffer.len) {
-                    if (allocator.resize(blob.buffer, response.data.size)) {} else {
+                    // Resize buffer if needed
+                    if (allocator.resize(blob.buffer, response.data.size)) {
+                        blob.buffer.len = response.data.size;
+                    } else {
+                        // If resize fails, mark as failed
                         blob.status = .failed;
                         _ = fetches.remove(response.handle);
                         return;
@@ -250,22 +258,34 @@ fn fetchFileCallback(response_: [*c]const sfetch.sfetch_response_t) callconv(.c)
                 }
                 blob.status = .ready;
                 std.log.info("Fetch succeeded for: {s}\n", .{blob.name});
-                _ = fetches.remove(response.handle);
             }
+            // Remove from active fetches
+            _ = fetches.remove(response.handle);
         }
     }
 }
 
 pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usize) FsErr!*Blob {
+    // Create a new blob to track this fetch
     const blob = try allocator.create(Blob);
     errdefer allocator.destroy(blob);
 
+    // Allocate buffer for the estimated size
+    const buffer = try allocator.alloc(u8, estimated_size);
+    errdefer allocator.free(buffer);
+
+    // Duplicate the name
+    const name = try allocator.dupe(u8, blobname);
+    errdefer allocator.free(name);
+
+    // Initialize the blob
     blob.* = Blob{
         .status = .in_progress,
-        .name = try allocator.dupe(u8, blobname),
-        .buffer = try allocator.alloc(u8, estimated_size),
+        .name = name,
+        .buffer = buffer,
     };
 
+    // Create the fetch request
     const req = sfetch.sfetch_request_t{
         .path = url.ptr,
         .callback = fetchFileCallback,
@@ -275,6 +295,7 @@ pub fn fetchFileAsync(url: []const u8, blobname: []const u8, estimated_size: usi
         },
     };
 
+    // Send the request and store the handle
     const fetch_handle = sfetch.sfetch_send(&req);
     try fetches.put(fetch_handle, blob);
 
