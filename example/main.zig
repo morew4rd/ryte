@@ -1,10 +1,9 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const physfs = @import("physfs");
-const raudio = @import("raudio");
 
 const window = @import("window.zig");
 const input = @import("input.zig");
+const audio = @import("audio.zig");
 const image = @import("image.zig");
 const canvas = @import("canvas.zig");
 const font = @import("font.zig");
@@ -127,10 +126,8 @@ pub fn main() !void {
     }
 
     // Initialize audio
-    raudio.InitAudioDevice();
-    if (!raudio.IsAudioDeviceReady()) {
-        return error.RaudioInitFailed;
-    }
+    try audio.init();
+    defer audio.deinit();
 
     try input.initInputCallbacks(window.main_window.window);
 
