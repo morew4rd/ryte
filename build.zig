@@ -565,27 +565,25 @@ fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
 fn buildRyteLibrary(
     b: *std.Build,
     opt: RyteBuildOptions,
-    deps: RyteDependencies,
-    mods: RyteModules,
-    emsdk: ?*Build.Dependency,
 ) !*Compile {
     const is_wasm = opt.is_wasm;
 
+    const deps = RyteDependencies{
+        .glfw = try buildGlfw(b, opt),
+        .freetype = try buildFreetype(b, opt),
+        .physfs = try buildPhysfs(b, opt),
+        .raudio = try buildRaudio(b, opt),
+        .header_libs = try buildHeaderOnlyLibs(b, opt),
+    };
+    const mods = getModules(b);
+
     // Create either an executable or static library
-    const lib = if (is_wasm)
-        b.addStaticLibrary(.{
-            .name = "ryte",
-            .root_source_file = b.path(library_root_source),
-            .target = opt.target,
-            .optimize = opt.optimize,
-        })
-    else
-        b.addStaticLibrary(.{
-            .name = "ryte",
-            .root_source_file = b.path(library_root_source),
-            .target = opt.target,
-            .optimize = opt.optimize,
-        });
+    const lib = b.addStaticLibrary(.{
+        .name = "ryte",
+        .root_source_file = b.path(library_root_source),
+        .target = opt.target,
+        .optimize = opt.optimize,
+    });
 
     // Add imports
     lib.root_module.addImport("glfw", mods.glfw_mod);
@@ -610,61 +608,50 @@ fn buildRyteLibrary(
     lib.linkLibrary(deps.raudio);
     lib.linkLibrary(deps.header_libs);
 
-    // For native builds, just install the executable
-    if (!is_wasm) {
-        // b.installArtifact(lib);
-        return lib;
-    }
+    // if (!is_wasm) {
+    //     return lib;
+    // }
 
     // For WASM builds, run the emscripten linker step
-    const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
-    const emcc = b.addSystemCommand(&.{emcc_path});
-    emcc.setName("emcc");
+    // const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
+    // const emcc = b.addSystemCommand(&.{emcc_path});
+    // emcc.setName("emcc");
 
-    if (opt.optimize == .Debug) {
-        emcc.addArgs(&.{ "-Og", "-sSAFE_HEAP=1", "-sSTACK_OVERFLOW_CHECK=1" });
-    } else {
-        emcc.addArg("-sASSERTIONS=0");
-        if (opt.optimize == .ReleaseSmall) {
-            emcc.addArg("-Oz");
-        } else {
-            emcc.addArg("-O3");
-        }
-    }
+    // if (opt.optimize == .Debug) {
+    //     emcc.addArgs(&.{ "-Og", "-sSAFE_HEAP=1", "-sSTACK_OVERFLOW_CHECK=1" });
+    // } else {
+    //     emcc.addArg("-sASSERTIONS=0");
+    //     if (opt.optimize == .ReleaseSmall) {
+    //         emcc.addArg("-Oz");
+    //     } else {
+    //         emcc.addArg("-O3");
+    //     }
+    // }
 
-    emcc.addArgs(&.{
-        "-sTOTAL_STACK=64MB",
-        "-sINITIAL_MEMORY=256MB",
-        "-sALLOW_MEMORY_GROWTH=1",
-        "-sUSE_OFFSET_CONVERTER=1",
-        "-sUSE_GLFW=3",
-        "-sUSE_WEBGL2=1",
-        "-sFULL_ES3=1",
-        "--shell-file",
-        "src/web/shell.html",
-        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
-        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
-    });
+    // emcc.addArgs(&.{
+    //     "-sTOTAL_STACK=64MB",
+    //     "-sINITIAL_MEMORY=256MB",
+    //     "-sALLOW_MEMORY_GROWTH=1",
+    //     "-sUSE_OFFSET_CONVERTER=1",
+    //     "-sUSE_GLFW=3",
+    //     "-sUSE_WEBGL2=1",
+    //     "-sFULL_ES3=1",
+    //     "--shell-file",
+    //     "src/web/shell.html",
+    //     "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
+    //     "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
+    // });
 
-    emcc.addArtifactArg(lib);
-    for (lib.getCompileDependencies(false)) |item| {
-        if (item.kind == .lib) {
-            emcc.addArtifactArg(item);
-        }
-    }
+    // emcc.addArtifactArg(lib);
+    // for (lib.getCompileDependencies(false)) |item| {
+    //     if (item.kind == .lib) {
+    //         emcc.addArtifactArg(item);
+    //     }
+    // }
 
-    emcc.addArg("-o");
+    // emcc.addArg("-o");
 
     return lib;
-    // const out_file = emcc.addOutputFileArg("ryte_example.html");
-
-    // const install = b.addInstallDirectory(.{
-    //     .source_dir = out_file.dirname(),
-    //     .install_dir = .prefix,
-    //     .install_subdir = "web",
-    // });
-    // install.step.dependOn(&emcc.step);
-    // b.getInstallStep().dependOn(&install.step);
 }
 
 // example
@@ -677,6 +664,7 @@ fn buildExample(
     const is_wasm = opt.is_wasm;
 
     // Create either an executable or static library
+
     const app = if (is_wasm)
         b.addStaticLibrary(.{
             .name = "ryte_example",
@@ -694,30 +682,9 @@ fn buildExample(
 
     app.root_module.addImport("ryte", ryte_lib.root_module);
 
-    // // Add imports
-    // app.root_module.addImport("glfw", mods.glfw_mod);
-    // app.root_module.addImport("physfs", mods.physfs_mod);
-    // app.root_module.addImport("sokol_fetch", mods.sokol_fetch_mod);
-    // app.root_module.addImport("raudio", mods.raudio_mod);
-    // app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
-    // app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-    // app.root_module.addImport("sokol_gfx_ext", mods.sokol_gfx_ext_mod);
-    // app.root_module.addImport("emsc", mods.emsc_shims_mod);
-    // app.root_module.addImport("stb_image", mods.stb_image_mod);
-    // app.root_module.addImport("stb_image_write", mods.stb_image_write_mod);
-    // app.root_module.addImport("fontstash", mods.fontstash_mod);
-
     // Link libraries
     app.linkLibC();
-    // if (!is_wasm) {
-    //     app.linkLibrary(deps.glfw.?);
-    // }
-    // app.linkLibrary(deps.freetype);
-    // app.linkLibrary(deps.physfs);
-    // app.linkLibrary(deps.raudio);
-    // app.linkLibrary(deps.header_libs);
 
-    // For native builds, just install the executable
     if (!is_wasm) {
         b.installArtifact(app);
         return;
@@ -795,16 +762,7 @@ pub fn build(b: *std.Build) !void {
         }
     }
 
-    const deps = RyteDependencies{
-        .glfw = try buildGlfw(b, opt),
-        .freetype = try buildFreetype(b, opt),
-        .physfs = try buildPhysfs(b, opt),
-        .raudio = try buildRaudio(b, opt),
-        .header_libs = try buildHeaderOnlyLibs(b, opt),
-    };
-    const mods = getModules(b);
-
-    const ryte_library = try buildRyteLibrary(b, opt, deps, mods, emsdk);
+    const ryte_library = try buildRyteLibrary(b, opt);
 
     try buildExample(b, opt, ryte_library, emsdk);
 }

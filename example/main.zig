@@ -113,7 +113,7 @@ fn tickFn_running(ts: ryte.TickState) void {
     ryte.drawText("lyte2d in zig", 10, 50) catch {};
     ryte.drawImage(img, 100, 100);
 
-    ryte.setColor(1, 0, 0, 0.4);
+    ryte.setColor(1, 1, 0, 0.4);
     ryte.pushMatrix();
     ryte.rotateAt(angle, w / 2, h / 2);
     ryte.drawCircle(150, 150, 50);
