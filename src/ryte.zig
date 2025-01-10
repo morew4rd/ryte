@@ -6,6 +6,7 @@ const canvas = @import("library/canvas.zig");
 const font = @import("library/font.zig");
 const fs = @import("library/fs.zig");
 const shapes = @import("library/shapes.zig");
+const shader = @import("library/shader.zig");
 
 pub usingnamespace window;
 pub usingnamespace input;
@@ -15,3 +16,4 @@ pub usingnamespace canvas;
 pub usingnamespace font;
 pub usingnamespace fs;
 pub usingnamespace shapes;
+pub usingnamespace shader;

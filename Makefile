@@ -5,7 +5,7 @@
 default: build run
 
 build:
-	zig build
+	zig build -Doptimize=Debug
 
 b-windows:
 	zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall

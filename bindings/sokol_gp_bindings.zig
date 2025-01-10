@@ -1779,3 +1779,10 @@ pub extern fn sgp_draw_textured_rects(channel: c_int, rects: [*c]const sgp_textu
 pub extern fn sgp_draw_textured_rect(channel: c_int, dest_rect: sgp_rect, src_rect: sgp_rect) void;
 pub extern fn sgp_query_state() [*c]sgp_state;
 pub extern fn sgp_query_desc() sgp_desc;
+
+// MG: these were accidentally removed
+pub const SGP_BATCH_OPTIMIZER_DEPTH = @as(c_int, 8);
+// pub const SGP_UNIFORM_CONTENT_SLOTS = @as(c_int, 4); // ORIGINAL
+// MG: TODO do it this like: https://ziggit.dev/t/using-a-single-header-c-library-from-zig/1913/2
+pub const SGP_TEXTURE_SLOTS = @as(c_int, 4);
+pub const SGP_UNIFORM_CONTENT_SLOTS = @as(c_int, 1024);

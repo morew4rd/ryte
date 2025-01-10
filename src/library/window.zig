@@ -38,6 +38,8 @@ pub const TickState = struct {
     total_time: f64,
     width: i32,
     height: i32,
+    xscale: f32,
+    yscale: f32,
     resized: bool,
     fullscreen: bool,
 };
@@ -157,6 +159,10 @@ pub fn initWindow() WindowErr!void {
 
     // Initialize Sokol GFX
     var sgdesc: sg.sg_desc = .{};
+    sgdesc.logger = .{
+        .func = myLogFn,
+        .user_data = null,
+    };
     sg.sg_setup(&sgdesc);
     if (!sg.sg_isvalid()) {
         return WindowErr.SG_IsInvalid;
@@ -259,6 +265,8 @@ fn mainLoop() callconv(.c) void {
             .total_time = main_window.total_time,
             .width = @intFromFloat((fb_width_f + -pl - pr) / xscale),
             .height = @intFromFloat((fb_height_f + -pt - pb) / yscale),
+            .xscale = xscale,
+            .yscale = yscale,
             .resized = resized,
             .fullscreen = main_window.fullscreen,
         };
@@ -357,9 +365,14 @@ pub inline fn scaleAt(scale_x: f32, scale_y: f32, x: f32, y: f32) void {
 }
 
 pub inline fn quit() void {
+    // TODO: "quit" functionality on a webpage TBD :)
     // if (builtin.target.os.tag == .emscripten) {
     //     const emsc = @import("emsc");
     //     emsc.emscripten_cancel_main_loop();
     // }
     main_window.do_quit = true;
+}
+
+fn myLogFn(from: [*c]const u8, _: u32, _: u32, log: [*c]const u8, _: u32, _: [*c]const u8, _: ?*anyopaque) callconv(.c) void {
+    if (log != null) std.debug.print("[sokol log]: [{s}] [{s}]\n", .{ from, log });
 }

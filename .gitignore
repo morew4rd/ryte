@@ -1,3 +1,6 @@
+# top level folders starting with _ are for private use
+/_*/
+
+# zig cache and all zig-out folders should be ignored
 .zig-cache/
-zig-out/
-.DS_Store
+zig-*/

@@ -21,6 +21,7 @@
 #include "sokol_fetch.h"
 #include "sokol_args.h"
 
+#define SGP_UNIFORM_CONTENT_SLOTS 1024
 #include "sokol_gp.h"
 
 
