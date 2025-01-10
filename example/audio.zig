@@ -41,14 +41,14 @@ pub const Sound = struct {
 var current_music: ?*Music = null;
 var master_volume: f32 = 0.7;
 
-pub fn init() AudioErr!void {
+pub fn initAudio() AudioErr!void {
     raudio.InitAudioDevice();
     if (!raudio.IsAudioDeviceReady()) {
         return AudioErr.InitFailed;
     }
 }
 
-pub fn deinit() void {
+pub fn deinitAudio() void {
     raudio.CloseAudioDevice();
 }
 

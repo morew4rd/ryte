@@ -101,7 +101,7 @@ pub var main_window: Window = Window{
     .do_quit = false,
 };
 
-pub fn init() WindowErr!void {
+pub fn initWindow() WindowErr!void {
     if (glfw.glfwInit() == 0) {
         return WindowErr.GlfwInitFailed;
     }
@@ -170,7 +170,7 @@ pub fn init() WindowErr!void {
     }
 }
 
-pub fn deinit() void {
+pub fn deinitWindow() void {
     defer glfw.glfwTerminate();
     defer sg.sg_shutdown();
     defer sgp.sgp_shutdown();

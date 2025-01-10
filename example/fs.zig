@@ -38,7 +38,7 @@ var allocator: std.mem.Allocator = undefined;
 var dropped_files: std.ArrayList(*Blob) = undefined;
 var fetches: std.AutoHashMap(sfetch.sfetch_handle_t, *Blob) = undefined;
 
-pub fn init(allocator_: std.mem.Allocator) FsErr!void {
+pub fn initFs(allocator_: std.mem.Allocator) FsErr!void {
     allocator = allocator_;
     const success = physfs.PHYSFS_init("");
     if (success == 0) {
@@ -56,7 +56,7 @@ pub fn init(allocator_: std.mem.Allocator) FsErr!void {
     fetches = std.AutoHashMap(sfetch.sfetch_handle_t, *Blob).init(allocator);
 }
 
-pub fn deinit() void {
+pub fn deinitFs() void {
     sfetch.sfetch_shutdown();
     _ = physfs.PHYSFS_deinit();
 
