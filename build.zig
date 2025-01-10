@@ -36,6 +36,7 @@ const stb_image_write_bindings = bindings_prefix ++ "stb_image_write_bindings.zi
 const fontstash_bindings = bindings_prefix ++ "fontstash_bindings.zig";
 // const freetype_bindings = bindings_prefix ++ "freetype_bindings.zig";
 
+const library_root_source = "./src/ryte.zig";
 const example_root_source = "./example/main.zig";
 
 // build options
@@ -133,7 +134,7 @@ fn buildGlfw(b: *std.Build, opt: RyteBuildOptions) !?*Compile {
         .target = opt.target,
         .optimize = opt.optimize,
     });
-    b.installArtifact(glfw);
+    // b.installArtifact(glfw);
 
     glfw.addIncludePath(b.path(glfw_path ++ "/include"));
     glfw.linkLibC();
@@ -396,7 +397,7 @@ fn buildFreetype(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         freetype.root_module.addCMacro("EMSCRIPTEN", "1");
     }
 
-    b.installArtifact(freetype);
+    // b.installArtifact(freetype);
 
     return freetype;
 }
@@ -484,7 +485,7 @@ fn buildPhysfs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         physfs.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
     }
 
-    b.installArtifact(physfs);
+    // b.installArtifact(physfs);
 
     return physfs;
 }
@@ -498,7 +499,6 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         .target = opt.target,
         .optimize = opt.optimize,
     });
-    b.installArtifact(raudio);
 
     raudio.addCSourceFile(.{
         .file = b.path(raudio_path ++ "/raudio.c"),
@@ -523,7 +523,7 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         raudio.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
     }
 
-    b.installArtifact(raudio);
+    // b.installArtifact(raudio);
 
     return raudio;
 }
@@ -531,13 +531,11 @@ fn buildRaudio(b: *std.Build, opt: RyteBuildOptions) !*Compile {
 // deps: sokol_gfx, sokol_gp, fontstash, stb libs
 fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
     //
-    const header_libs =
-        b.addStaticLibrary(.{
+    const header_libs = b.addStaticLibrary(.{
         .name = "header_libs",
         .target = opt.target,
         .optimize = opt.optimize,
     });
-    b.installArtifact(header_libs);
 
     header_libs.addCSourceFile(.{
         .file = b.path(header_impl_src),
@@ -558,17 +556,122 @@ fn buildHeaderOnlyLibs(b: *std.Build, opt: RyteBuildOptions) !*Compile {
         header_libs.addSystemIncludePath(emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "cache", "sysroot", "include" }));
     }
 
-    b.installArtifact(header_libs);
+    // b.installArtifact(header_libs);
 
     return header_libs;
+}
+
+// example
+fn buildRyteLibrary(
+    b: *std.Build,
+    opt: RyteBuildOptions,
+    deps: RyteDependencies,
+    mods: RyteModules,
+    emsdk: ?*Build.Dependency,
+) !*Compile {
+    const is_wasm = opt.is_wasm;
+
+    // Create either an executable or static library
+    const lib = if (is_wasm)
+        b.addStaticLibrary(.{
+            .name = "ryte",
+            .root_source_file = b.path(library_root_source),
+            .target = opt.target,
+            .optimize = opt.optimize,
+        })
+    else
+        b.addStaticLibrary(.{
+            .name = "ryte",
+            .root_source_file = b.path(library_root_source),
+            .target = opt.target,
+            .optimize = opt.optimize,
+        });
+
+    // Add imports
+    lib.root_module.addImport("glfw", mods.glfw_mod);
+    lib.root_module.addImport("physfs", mods.physfs_mod);
+    lib.root_module.addImport("sokol_fetch", mods.sokol_fetch_mod);
+    lib.root_module.addImport("raudio", mods.raudio_mod);
+    lib.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
+    lib.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
+    lib.root_module.addImport("sokol_gfx_ext", mods.sokol_gfx_ext_mod);
+    lib.root_module.addImport("emsc", mods.emsc_shims_mod);
+    lib.root_module.addImport("stb_image", mods.stb_image_mod);
+    lib.root_module.addImport("stb_image_write", mods.stb_image_write_mod);
+    lib.root_module.addImport("fontstash", mods.fontstash_mod);
+
+    // Link libraries
+    lib.linkLibC();
+    if (!is_wasm) {
+        lib.linkLibrary(deps.glfw.?);
+    }
+    lib.linkLibrary(deps.freetype);
+    lib.linkLibrary(deps.physfs);
+    lib.linkLibrary(deps.raudio);
+    lib.linkLibrary(deps.header_libs);
+
+    // For native builds, just install the executable
+    if (!is_wasm) {
+        // b.installArtifact(lib);
+        return lib;
+    }
+
+    // For WASM builds, run the emscripten linker step
+    const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
+    const emcc = b.addSystemCommand(&.{emcc_path});
+    emcc.setName("emcc");
+
+    if (opt.optimize == .Debug) {
+        emcc.addArgs(&.{ "-Og", "-sSAFE_HEAP=1", "-sSTACK_OVERFLOW_CHECK=1" });
+    } else {
+        emcc.addArg("-sASSERTIONS=0");
+        if (opt.optimize == .ReleaseSmall) {
+            emcc.addArg("-Oz");
+        } else {
+            emcc.addArg("-O3");
+        }
+    }
+
+    emcc.addArgs(&.{
+        "-sTOTAL_STACK=64MB",
+        "-sINITIAL_MEMORY=256MB",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sUSE_OFFSET_CONVERTER=1",
+        "-sUSE_GLFW=3",
+        "-sUSE_WEBGL2=1",
+        "-sFULL_ES3=1",
+        "--shell-file",
+        "src/web/shell.html",
+        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
+    });
+
+    emcc.addArtifactArg(lib);
+    for (lib.getCompileDependencies(false)) |item| {
+        if (item.kind == .lib) {
+            emcc.addArtifactArg(item);
+        }
+    }
+
+    emcc.addArg("-o");
+
+    return lib;
+    // const out_file = emcc.addOutputFileArg("ryte_example.html");
+
+    // const install = b.addInstallDirectory(.{
+    //     .source_dir = out_file.dirname(),
+    //     .install_dir = .prefix,
+    //     .install_subdir = "web",
+    // });
+    // install.step.dependOn(&emcc.step);
+    // b.getInstallStep().dependOn(&install.step);
 }
 
 // example
 fn buildExample(
     b: *std.Build,
     opt: RyteBuildOptions,
-    deps: RyteDependencies,
-    mods: RyteModules,
+    ryte_lib: *Compile,
     emsdk: ?*Build.Dependency,
 ) !void {
     const is_wasm = opt.is_wasm;
@@ -589,28 +692,30 @@ fn buildExample(
             .optimize = opt.optimize,
         });
 
-    // Add imports
-    app.root_module.addImport("glfw", mods.glfw_mod);
-    app.root_module.addImport("physfs", mods.physfs_mod);
-    app.root_module.addImport("sokol_fetch", mods.sokol_fetch_mod);
-    app.root_module.addImport("raudio", mods.raudio_mod);
-    app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
-    app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
-    app.root_module.addImport("sokol_gfx_ext", mods.sokol_gfx_ext_mod);
-    app.root_module.addImport("emsc", mods.emsc_shims_mod);
-    app.root_module.addImport("stb_image", mods.stb_image_mod);
-    app.root_module.addImport("stb_image_write", mods.stb_image_write_mod);
-    app.root_module.addImport("fontstash", mods.fontstash_mod);
+    app.root_module.addImport("ryte", ryte_lib.root_module);
+
+    // // Add imports
+    // app.root_module.addImport("glfw", mods.glfw_mod);
+    // app.root_module.addImport("physfs", mods.physfs_mod);
+    // app.root_module.addImport("sokol_fetch", mods.sokol_fetch_mod);
+    // app.root_module.addImport("raudio", mods.raudio_mod);
+    // app.root_module.addImport("sokol_gfx", mods.sokol_gfx_mod);
+    // app.root_module.addImport("sokol_gp", mods.sokol_gp_mod);
+    // app.root_module.addImport("sokol_gfx_ext", mods.sokol_gfx_ext_mod);
+    // app.root_module.addImport("emsc", mods.emsc_shims_mod);
+    // app.root_module.addImport("stb_image", mods.stb_image_mod);
+    // app.root_module.addImport("stb_image_write", mods.stb_image_write_mod);
+    // app.root_module.addImport("fontstash", mods.fontstash_mod);
 
     // Link libraries
     app.linkLibC();
-    if (!is_wasm) {
-        app.linkLibrary(deps.glfw.?);
-    }
-    app.linkLibrary(deps.freetype);
-    app.linkLibrary(deps.physfs);
-    app.linkLibrary(deps.raudio);
-    app.linkLibrary(deps.header_libs);
+    // if (!is_wasm) {
+    //     app.linkLibrary(deps.glfw.?);
+    // }
+    // app.linkLibrary(deps.freetype);
+    // app.linkLibrary(deps.physfs);
+    // app.linkLibrary(deps.raudio);
+    // app.linkLibrary(deps.header_libs);
 
     // For native builds, just install the executable
     if (!is_wasm) {
@@ -699,5 +804,7 @@ pub fn build(b: *std.Build) !void {
     };
     const mods = getModules(b);
 
-    try buildExample(b, opt, deps, mods, emsdk);
+    const ryte_library = try buildRyteLibrary(b, opt, deps, mods, emsdk);
+
+    try buildExample(b, opt, ryte_library, emsdk);
 }

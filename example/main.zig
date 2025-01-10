@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const ryte = @import("ryte.zig");
+const ryte = @import("ryte");
 
 // Global allocator
 // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -146,7 +146,7 @@ pub fn main() !void {
 
     // Initialize audio
     try ryte.initAudio();
-    defer ryte.deinit();
+    defer ryte.deinitAudio();
 
     try ryte.initInputCallbacks(ryte.main_window.window);
 
