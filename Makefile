@@ -16,6 +16,7 @@ b-linux:
 # emscripten
 b-emscripten:
 	zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall
+	cp -R ./assets ./zig-out/web
 
 
 run:
