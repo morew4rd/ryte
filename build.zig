@@ -587,13 +587,19 @@ fn buildRyteLibrary(
     };
     const mods = getModules(b);
 
-    // Create either an executable or static library
-    const lib = b.addStaticLibrary(.{
-        .name = "ryte",
+    const ryte_mod = b.addModule("ryte", .{
         .root_source_file = b.path(library_root_source),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
+
+    const lib = b.addStaticLibrary(.{
+        .name = "ryte",
+        .root_module = ryte_mod,
+    });
+
+    lib.root_module.addImport("ryte", ryte_mod);
 
     // Add imports
     lib.root_module.addImport("glfw", mods.glfw_mod);
@@ -618,91 +624,19 @@ fn buildRyteLibrary(
     lib.linkLibrary(deps.raudio);
     lib.linkLibrary(deps.header_libs);
 
-    // if (!is_wasm) {
-    //     return lib;
-    // }
-
-    // For WASM builds, run the emscripten linker step
-    // const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
-    // const emcc = b.addSystemCommand(&.{emcc_path});
-    // emcc.setName("emcc");
-
-    // if (opt.optimize == .Debug) {
-    //     emcc.addArgs(&.{ "-Og", "-sSAFE_HEAP=1", "-sSTACK_OVERFLOW_CHECK=1" });
-    // } else {
-    //     emcc.addArg("-sASSERTIONS=0");
-    //     if (opt.optimize == .ReleaseSmall) {
-    //         emcc.addArg("-Oz");
-    //     } else {
-    //         emcc.addArg("-O3");
-    //     }
-    // }
-
-    // emcc.addArgs(&.{
-    //     "-sTOTAL_STACK=64MB",
-    //     "-sINITIAL_MEMORY=256MB",
-    //     "-sALLOW_MEMORY_GROWTH=1",
-    //     "-sUSE_OFFSET_CONVERTER=1",
-    //     "-sUSE_GLFW=3",
-    //     "-sUSE_WEBGL2=1",
-    //     "-sFULL_ES3=1",
-    //     "--shell-file",
-    //     "src/web/shell.html",
-    //     "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']",
-    //     "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
-    // });
-
-    // emcc.addArtifactArg(lib);
-    // for (lib.getCompileDependencies(false)) |item| {
-    //     if (item.kind == .lib) {
-    //         emcc.addArtifactArg(item);
-    //     }
-    // }
-
-    // emcc.addArg("-o");
+    b.installArtifact(lib); // Add this line
 
     return lib;
 }
 
 // example
-fn buildExample(
+pub fn buildEmscriptenExample(
     b: *std.Build,
-    target: ResolvedTarget,
+    app: *Compile,
+    emsdk: *Build.Dependency,
     optimize: OptimizeMode,
-    ryte_lib: *Compile,
-    emsdk: ?*Build.Dependency,
-) !void {
-    const is_wasm = target.result.isWasm();
-
-    // Create either an executable or static library
-
-    const app = if (is_wasm)
-        b.addStaticLibrary(.{
-            .name = "ryte_example",
-            .root_source_file = b.path(example_root_source),
-            .target = target,
-            .optimize = optimize,
-        })
-    else
-        b.addExecutable(.{
-            .name = "ryte_example",
-            .root_source_file = b.path(example_root_source),
-            .target = target,
-            .optimize = optimize,
-        });
-
-    app.root_module.addImport("ryte", ryte_lib.root_module);
-
-    // Link libraries
-    app.linkLibC();
-
-    if (!is_wasm) {
-        b.installArtifact(app);
-        return;
-    }
-
-    // For WASM builds, run the emscripten linker step
-    const emcc_path = emSdkLazyPath(b, emsdk.?, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
+) !*Build.Step.InstallDir {
+    const emcc_path = emSdkLazyPath(b, emsdk, &.{ "upstream", "emscripten", "emcc" }).getPath(b);
     const emcc = b.addSystemCommand(&.{emcc_path});
     emcc.setName("emcc");
 
@@ -739,15 +673,56 @@ fn buildExample(
     }
 
     emcc.addArg("-o");
-    const out_file = emcc.addOutputFileArg("ryte_example.html");
-
+    const out_file = emcc.addOutputFileArg("ryte.html");
     const install = b.addInstallDirectory(.{
         .source_dir = out_file.dirname(),
         .install_dir = .prefix,
         .install_subdir = "web",
     });
+
     install.step.dependOn(&emcc.step);
     b.getInstallStep().dependOn(&install.step);
+    return install;
+}
+
+// Refactored buildExample function
+fn buildExample(
+    b: *std.Build,
+    target: ResolvedTarget,
+    optimize: OptimizeMode,
+    ryte_lib: *Compile,
+    emsdk: ?*Build.Dependency,
+) !void {
+    const is_wasm = target.result.isWasm();
+
+    // Create either an executable or static library
+    const app = if (is_wasm)
+        b.addStaticLibrary(.{
+            .name = "ryte_example",
+            .root_source_file = b.path(example_root_source),
+            .target = target,
+            .optimize = optimize,
+        })
+    else
+        b.addExecutable(.{
+            .name = "ryte_example",
+            .root_source_file = b.path(example_root_source),
+            .target = target,
+            .optimize = optimize,
+        });
+
+    app.root_module.addImport("ryte", ryte_lib.root_module);
+
+    // Link libraries
+    app.linkLibC();
+
+    if (!is_wasm) {
+        b.installArtifact(app);
+        return;
+    }
+
+    // For WASM builds, call the emscripten-specific function
+    _ = try buildEmscriptenExample(b, app, emsdk.?, optimize);
 }
 
 // build entry point

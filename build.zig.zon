@@ -1,7 +1,9 @@
 .{
     .name = "ryte",
     .version = "0.1.0",
-    .minimum_zig_version = "0.14.0",
+
+    // actually we need
+    .minimum_zig_version = "0.14.0-dev",
 
     .dependencies = .{
         .emsdk = .{
