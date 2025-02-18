@@ -91,8 +91,8 @@ pub fn setCanvas(cvs: ?Image) CanvasErr!void {
             .action = .{
                 .colors = [_]sg.sg_color_attachment_action{
                     .{
-                        .load_action = sg.SG_LOADACTION_CLEAR,
-                        .clear_value = .{ .r = 1.0, .g = 1.0, .b = 1.0, .a = 1.0 },
+                        .load_action = sg.SG_LOADACTION_LOAD,
+                        //.clear_value = .{ .r = 1.0, .g = 1.0, .b = 1.0, .a = 1.0 },
                     },
                     .{},
                     .{},
