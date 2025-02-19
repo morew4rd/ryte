@@ -173,3 +173,24 @@ pub fn drawArcLine(x: f32, y: f32, radius: f32, start_angle: f32, end_angle: f32
 
     sgp.sgp_draw_lines(@ptrCast(lines[0..segment_count]), @intCast(segment_count));
 }
+
+pub fn drawThickLine(x1: f32, y1: f32, x2: f32, y2: f32, thickness: f32) void {
+    // Calculate line length and angle
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = @sqrt(dx * dx + dy * dy);
+    const angle = math.atan2(dy, dx);
+
+    // Save current transform
+    sgp.sgp_push_transform();
+
+    // Move to starting point and rotate
+    sgp.sgp_translate(x1, y1);
+    sgp.sgp_rotate(angle);
+
+    // Draw rectangle representing the thick line
+    drawRect(0, -thickness / 2, length, thickness);
+
+    // Restore transform
+    sgp.sgp_pop_transform();
+}
