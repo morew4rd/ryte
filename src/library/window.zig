@@ -9,7 +9,7 @@ const input = @import("input.zig");
 
 pub const W = 800;
 pub const H = 600;
-pub const initial_title = "ryte -- lyte2d in zig";
+pub const initial_title = "hello";
 
 pub const WindowErr = error{
     GlfwInitFailed,
@@ -362,6 +362,10 @@ pub inline fn scale(scale_x: f32, scale_y: f32) void {
 
 pub inline fn scaleAt(scale_x: f32, scale_y: f32, x: f32, y: f32) void {
     sgp.sgp_scale_at(scale_x, scale_y, x, y);
+}
+
+pub fn setWindowTitle(title: []const u8) void {
+    glfw.glfwSetWindowTitle(main_window.window, @ptrCast(title));
 }
 
 pub inline fn quit() void {
