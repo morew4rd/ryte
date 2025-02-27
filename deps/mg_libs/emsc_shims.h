@@ -25,10 +25,11 @@ void emsc_run_js(const char *js);
 /* common emscripten platform helper functions */
 
 #include <string.h>
+#include <stdio.h>
 
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
-
+#include <GLFW/glfw3.h>
 
 static const char* _emsc_canvas_name = 0;
 static bool _emsc_is_webgl2 = false;
@@ -43,6 +44,8 @@ static EM_BOOL _emsc_size_changed(int event_type, const EmscriptenUiEvent* ui_ev
     (void)user_data;
     emscripten_get_element_css_size(_emsc_canvas_name, &_emsc_width, &_emsc_height);
     emscripten_set_canvas_element_size(_emsc_canvas_name, _emsc_width, _emsc_height);
+    glfwSetWindowSize(glfwGetCurrentContext(), (int)_emsc_width, (int)_emsc_height);
+    // printf("===>>>RESIZE %f , %f \n",_emsc_width, _emsc_height);
     return true;
 }
 
@@ -52,7 +55,7 @@ void emsc_init(const char* canvas_name, int flags) {
     _emsc_is_webgl2 = false;
     emscripten_get_element_css_size(canvas_name, &_emsc_width, &_emsc_height);
     emscripten_set_canvas_element_size(canvas_name, _emsc_width, _emsc_height);
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, 0, false, _emsc_size_changed);
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, glfwGetCurrentContext(), false, _emsc_size_changed);
     EMSCRIPTEN_WEBGL_CONTEXT_HANDLE ctx;
     EmscriptenWebGLContextAttributes attrs;
     emscripten_webgl_init_context_attributes(&attrs);

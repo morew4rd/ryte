@@ -170,6 +170,7 @@ pub fn initWindow() WindowErr!void {
 
     // Initialize Sokol GP
     var sgpdesc: sgp.sgp_desc = .{};
+    sgpdesc.max_vertices = 65536 * 10;
     sgp.sgp_setup(&sgpdesc);
     if (!sg.sg_isvalid()) {
         return WindowErr.SGP_IsInvalid;
@@ -227,11 +228,14 @@ fn mainLoop() callconv(.c) void {
         glfw.glfwGetWindowSize(main_window.window, &win_width, &win_height);
         glfw.glfwGetFramebufferSize(main_window.window, &fb_width, &fb_height);
         glfw.glfwGetWindowContentScale(main_window.window, &xscale, &yscale);
+        // xscale = 1.0;
+        // yscale = 1.0;
     }
 
     // Check for window resize
     var resized = false;
     if (main_window.last_width != win_width or main_window.last_height != win_height) {
+        // std.debug.print("RESIZED!\n", .{});
         resized = true;
         main_window.last_width = win_width;
         main_window.last_height = win_height;

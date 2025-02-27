@@ -17,6 +17,8 @@ const InputState = struct {
     keys_rep: [key_count]bool,
 
     // Mouse
+    mouse_x: f64,
+    mouse_y: f64,
     mousebuttons_cur: [mousebutton_count]bool,
     mousebuttons_prev: [mousebutton_count]bool,
 
@@ -29,6 +31,8 @@ var input_state: InputState = InputState{
     .keys_cur = [_]bool{false} ** key_count,
     .keys_prev = [_]bool{false} ** key_count,
     .keys_rep = [_]bool{false} ** key_count,
+    .mouse_x = 0,
+    .mouse_y = 0,
     .mousebuttons_cur = [_]bool{false} ** mousebutton_count,
     .mousebuttons_prev = [_]bool{false} ** mousebutton_count,
     .textinput_data = [_]u32{0} ** max_codepoints,
@@ -50,6 +54,12 @@ fn keyCallback(win: ?*glfw.GLFWwindow, key: c_int, scancode: c_int, action: c_in
             input_state.keys_rep[@intCast(key)] = true;
         }
     }
+}
+
+fn mousePosCallback(win: ?*glfw.GLFWwindow, x: f64, y: f64) callconv(.C) void {
+    _ = win;
+    input_state.mouse_x = x;
+    input_state.mouse_y = y;
 }
 
 fn mouseButtonCallback(win: ?*glfw.GLFWwindow, button: c_int, action: c_int, mods: c_int) callconv(.C) void {
@@ -107,6 +117,7 @@ fn resetTextInput() void {
 
 pub fn initInputCallbacks(win: *glfw.GLFWwindow) !void {
     _ = glfw.glfwSetKeyCallback(win, keyCallback);
+    _ = glfw.glfwSetCursorPosCallback(win, mousePosCallback);
     _ = glfw.glfwSetMouseButtonCallback(win, mouseButtonCallback);
     _ = glfw.glfwSetScrollCallback(win, mouseScrollCallback);
     _ = glfw.glfwSetCharCallback(win, characterCallback);
@@ -149,7 +160,9 @@ pub fn mouseReleased(button: MouseButton) bool {
 pub fn getMousePosition() struct { x: f64, y: f64 } {
     var x: f64 = undefined;
     var y: f64 = undefined;
-    glfw.glfwGetCursorPos(window.main_window.window, &x, &y);
+    // glfw.glfwGetCursorPos(window.main_window.window, &x, &y);
+    x = input_state.mouse_x;
+    y = input_state.mouse_y;
     return .{
         .x = x - window.main_window.margins.left - window.main_window.paddings.left,
         .y = y - window.main_window.margins.top - window.main_window.paddings.top,
