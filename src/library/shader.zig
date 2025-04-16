@@ -73,7 +73,7 @@ pub fn shaderBuilderFragment(builder: *ShaderBuilder, code: []const u8) void {
     builder.frag_code = code;
 }
 
-const ShaderHeader = if (builtin.target.isWasm())
+const ShaderHeader = if (builtin.target.cpu.arch.isWasm())
     "#version 300 es\nprecision highp float;\n// ---\n"
 else
     "#version 330\n// ---\n\n";

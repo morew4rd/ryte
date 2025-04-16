@@ -1,5 +1,5 @@
 .{
-    .name = "ryte",
+    .name = .ryte,
     .version = "0.1.0",
 
     // actually we need
@@ -24,4 +24,5 @@
         "bindings",
         // "deps",
     },
+    .fingerprint = 0xcdd9cdf1ae655851,
 }

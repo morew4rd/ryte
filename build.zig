@@ -567,12 +567,12 @@ fn buildRyteLibrary(
     target: ResolvedTarget,
     optimize: OptimizeMode,
 ) !*Compile {
-    const is_wasm = target.result.isWasm();
+    const is_wasm = target.result.cpu.arch.isWasm();
 
     const opt = RyteBuildOptions{
         .target = target,
         .optimize = optimize,
-        .is_wasm = target.result.isWasm(),
+        .is_wasm = target.result.cpu.arch.isWasm(),
         .is_linux = target.result.os.tag == .linux,
         .is_macos = target.result.os.tag == .macos,
         .is_windows = target.result.os.tag == .windows,
@@ -693,7 +693,7 @@ fn buildExample(
     ryte_lib: *Compile,
     emsdk: ?*Build.Dependency,
 ) !void {
-    const is_wasm = target.result.isWasm();
+    const is_wasm = target.result.cpu.arch.isWasm();
 
     // Create either an executable or static library
     const app = if (is_wasm)
@@ -733,7 +733,7 @@ pub fn build(b: *std.Build) !void {
     const emsdk = b.dependency("emsdk", .{});
 
     // Setup emsdk if needed
-    if (target.result.isWasm()) {
+    if (target.result.cpu.arch.isWasm()) {
         if (try emSdkSetupStep(b, emsdk)) |emsdk_setup| {
             b.getInstallStep().dependOn(&emsdk_setup.step);
         }
